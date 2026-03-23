@@ -1,5 +1,5 @@
 ---
-type: chore
+type: bug
 status: draft
 priority: high
 created: 2026-03-23
