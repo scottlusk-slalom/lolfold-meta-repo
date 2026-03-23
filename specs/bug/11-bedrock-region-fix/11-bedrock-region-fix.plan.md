@@ -1,63 +1,36 @@
-# Execution Plan: Bedrock Region Routing Fix
+# Execution Plan: Upgrade to Claude 4 on Bedrock
 
 ## Approach
 
-Start with the quickest solution (Option 1: foundation model ID) to unblock AI features, then investigate root cause for long-term fix if needed. This follows fail-fast principles—get a working system first, optimize second.
+Try fix Option A (full inference profile ARN) first — it's explicit and doesn't depend on SDK version. If it fails, upgrade the SDK (Option B) and retry.
 
 ## Key Decisions & Constraints
 
-1. **Quick Win First:** Use foundation model ID `anthropic.claude-3-5-sonnet-20240620-v1:0` to validate hypothesis before deeper investigation
-2. **No Code Changes (Initially):** Test via environment variable change only—redeploy ECS task definition
-3. **Preserve Evidence:** Capture CloudWatch logs showing us-east-1 routing before fix for documentation
-4. **Rollback Plan:** Keep inference profile ID documented for future retry if foundation model has limitations
+- Current workaround: `anthropic.claude-3-5-sonnet-20241022-v2:0` (direct invocation, works but old model)
+- Target: `us.anthropic.claude-sonnet-4-6` via inference profile
+- No IAM changes needed — policy already allows inference profiles in us-west-2
+- Avoid multi-region IAM workarounds (violates least-privilege)
 
 ## Milestones
 
-### 1. Validate Current State
-- Capture CloudWatch logs showing us-east-1 region in error
-- Confirm IAM policy denies us-east-1 (expected behavior)
-- Document exact model ID currently in use: `us.anthropic.claude-sonnet-4-6`
+### 1. Try Full ARN
+- Update `BEDROCK_MODEL_ID` env var to `arn:aws:bedrock:us-west-2:446490546198:inference-profile/us.anthropic.claude-sonnet-4-6`
+- Deploy and test hand parsing
+- If it works, done
 
-### 2. Test Foundation Model ID
-- Update ECS task definition environment: `BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0`
-- Apply terraform changes
-- Force ECS service redeployment
-- Test hand parsing: `POST /api/hands/parse` with sample input
-- Verify success or capture new error state
+### 2. If ARN Fails: Upgrade SDK
+- Bump `@aws-sdk/client-bedrock-runtime` to latest in `package.json`
+- Rebuild Docker image, push to ECR, redeploy
+- Test with short inference profile ID: `us.anthropic.claude-sonnet-4-6`
 
-### 3. Validate Fix
-- Test all AI features: hand parsing, AI search, player summaries
-- Confirm CloudWatch logs show us-west-2 endpoint
-- Verify no 403 errors in logs
-- Performance check: response times acceptable (< 5s for parse)
-
-### 4. Document Root Cause (If Fixed)
-- Update DEPLOYMENT.md with solution applied
-- Note if inference profiles have known region routing issues
-- Document recommended model ID for future deployments
-
-### 5. Investigate Deeper (If Foundation Model Fails)
-- Clone lolfold-api locally
-- Add debug logging to BedrockRuntimeClient instantiation
-- Inspect ConverseCommand request object before send
-- Check SDK version against known issues
-- Test explicit region override in code
+### 3. Validate
+- Test all AI features (parse, search, summaries)
+- Confirm no errors in CloudWatch logs
 
 ## Affected Systems
-
-- **lolfold-infra:** Task definition environment variables (terraform)
-- **lolfold-api:** Runtime Bedrock client configuration (no code changes unless Option 2 needed)
-- **ECS Service:** Requires redeployment to pick up new task definition
+- lolfold-api (config or package.json)
+- lolfold-infra (env var in task definition)
 
 ## Risks
-
-- **Foundation model may not support all features:** Inference profiles may offer extended context or routing benefits
-- **Model version difference:** v1:0 is older than 4.6, but should be functionally equivalent for POC
-- **Time to test:** Each deployment takes ~2 minutes (task start + health checks)
-
-## Notes
-
-- The inference profile `us.anthropic.claude-sonnet-4-6` is a valid ID returned by `aws bedrock list-inference-profiles`
-- The IAM policy correctly includes both foundation models and inference profiles in us-west-2
-- The SDK may have a bug where inference profile ARNs are rewritten to a default region (us-east-1)
-- If foundation model works, consider filing AWS support case about inference profile routing behavior
+- Full ARN format may not be accepted by Converse API
+- SDK upgrade could introduce breaking changes in other AWS calls
