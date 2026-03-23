@@ -1,0 +1,81 @@
+---
+description: Guidance on when to use each spec type
+globs: ["specs/**"]
+---
+
+# Spec Type Selection Guide
+
+## Feature Specs (`specs/feature/`)
+
+**Use when:**
+- Adding new functionality to existing systems
+- Building new capabilities or user-facing features
+- Implementing significant enhancements
+- Developing new APIs, interfaces, or integrations
+
+**Examples:**
+- Adding user authentication
+- Implementing reporting dashboard
+- Building REST API
+- Adding real-time notifications
+
+## Bug Specs (`specs/bug/`)
+
+**Use when:**
+- Fixing reported defects or issues
+- Resolving incorrect behavior
+- Addressing production incidents
+- Fixing edge cases or error conditions
+
+**Examples:**
+- Fixing crashes on invalid input
+- Resolving authentication failures
+- Correcting calculation errors
+- Fixing memory leaks
+
+## Chore Specs (`specs/chore/`)
+
+**Use when:**
+- Setting up infrastructure or tooling
+- Refactoring without changing functionality
+- Updating dependencies or configuration
+- Implementing build, deployment, CI/CD improvements
+- Organizing documentation or project structure
+
+**Examples:**
+- Setting up meta-repository structure
+- Configuring CI/CD pipelines
+- Upgrading dependencies
+- Implementing linting standards
+
+## Design Specs (`specs/design/`)
+
+**Use when:**
+- Exploring different architectural approaches
+- Prototyping new concepts
+- Evaluating technical feasibility
+- Creating proof-of-concepts
+- Researching and comparing solution options
+
+**Examples:**
+- Evaluating state management approaches
+- Prototyping UI component library
+- Exploring microservices vs monolithic
+- Designing API contracts
+- Comparing database options
+
+## Planning Specs (`specs/planning/`)
+
+**Use when:**
+- Conducting research or discovery work
+- Planning complex multi-phase initiatives
+- Analyzing requirements for future work
+- Evaluating technical debt
+- Creating roadmaps or strategic plans
+
+**Examples:**
+- Researching third-party service options
+- Planning major system migration
+- Analyzing performance bottlenecks
+- Creating technical roadmap
+- Evaluating architectural changes

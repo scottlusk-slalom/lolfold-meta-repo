@@ -1,0 +1,78 @@
+# Project Repositories Configuration
+# List repositories relevant to this project for use with /sync-repo
+
+repositories:
+  lolfold-frontend:
+    purpose: React web app — mobile-first UI for hand input, player profiles, hand replayer, search
+    git:
+      organization: scottlusk-slalom
+      repository: lolfold-frontend
+      clone_url: https://github.com/scottlusk-slalom/lolfold-frontend.git
+      default_branch: main
+    context:
+      primary: AGENTS.md
+      secondary:
+        - README.md
+    description: >
+      Vite + React frontend. Mobile-first responsive design. Dark mode default.
+      Hand input form, hand list with filters, player profiles, visual hand replayer,
+      AI search interface. Authenticates via Cognito/Google OAuth.
+    key_directories:
+      src/: Application source code
+      src/components/: React components
+      src/pages/: Page-level components
+    when_to_use:
+      - Working on UI/UX
+      - Hand replayer development
+      - Search and filter interface
+      - Player profile views
+
+  lolfold-api:
+    purpose: Backend API — hand processing, AI integration (Bedrock/Claude), data access
+    git:
+      organization: scottlusk-slalom
+      repository: lolfold-api
+      clone_url: https://github.com/scottlusk-slalom/lolfold-api.git
+      default_branch: main
+    context:
+      primary: AGENTS.md
+      secondary:
+        - README.md
+    description: >
+      Backend API service. Handles hand submission and AI parsing via Bedrock/Claude,
+      player profile management, search (traditional + AI-powered), session tracking.
+      Exposes REST API consumed by the frontend.
+    key_directories:
+      src/: Application source code
+    when_to_use:
+      - Hand parsing and AI integration
+      - API endpoint development
+      - Data model and storage
+      - Player profile logic
+      - Search implementation
+
+  lolfold-infra:
+    purpose: Terraform infrastructure — Cognito, database, Bedrock access, networking
+    git:
+      organization: scottlusk-slalom
+      repository: lolfold-infra
+      clone_url: https://github.com/scottlusk-slalom/lolfold-infra.git
+      default_branch: main
+    context:
+      primary: README.md
+    description: >
+      Terraform IaC for all AWS resources. Cognito user pool with Google OAuth,
+      database (DynamoDB or RDS), Bedrock model access, VPC, security groups,
+      hosting for frontend and API.
+    key_directories:
+      modules/: Terraform modules
+    when_to_use:
+      - Infrastructure changes
+      - Adding new AWS resources
+      - Security group or networking changes
+      - Cognito configuration
+
+selection_guidelines:
+  lolfold-frontend: UI work, component development, hand replayer, visual search/filter
+  lolfold-api: API endpoints, AI/Bedrock integration, data model, business logic
+  lolfold-infra: AWS resources, Terraform, networking, auth infrastructure
