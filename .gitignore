@@ -1,0 +1,18 @@
+# Meta-repo conventions
+# Cloned repositories within specs (managed separately)
+**/repo/
+
+# Volatile scratch memory (task-specific, not committed)
+**/scratch/
+
+# Local archives (optional, for keeping completed specs locally)
+_archive/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~

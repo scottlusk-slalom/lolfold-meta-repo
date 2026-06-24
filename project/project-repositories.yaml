@@ -1,0 +1,31 @@
+# Project Repositories Configuration
+# List repositories relevant to this project for use with /sync-repo
+
+repositories:
+  # Example repository configuration:
+  #
+  # my-backend:
+  #   purpose: Backend API service for the application.
+  #   git:
+  #     organization: my-org
+  #     repository: my-backend
+  #     clone_url: https://github.com/my-org/my-backend.git
+  #     default_branch: main
+  #   context:
+  #     primary: AGENTS.md
+  #     secondary:
+  #       - CLAUDE.md
+  #       - README.md
+  #   typical_clone_location: specs/{type}/{spec-name}/repo/my-backend/
+  #   description: >
+  #     Description of this repository and its role in the project.
+  #   key_directories:
+  #     src/: Application source code
+  #     docs/: Documentation
+  #   when_to_use:
+  #     - Working on backend features
+  #     - Modifying API endpoints
+
+selection_guidelines:
+  # Add guidelines for when to clone each repository
+  # example-repo: Use for feature work, bug fixes, and API changes
