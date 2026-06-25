@@ -2,22 +2,85 @@
 # Validate with: ./scripts/validate-repos-yaml.sh
 
 repositories:
-  # example-api:
-  #   purpose: Backend API service
-  #   description: >
-  #     Primary REST API serving the frontend application.
-  #   local_path: repos/example-api
-  #   default_gate_level: minimal    # minimal | standard | full
-  #   status: proposed               # proposed | planned | active | legacy | archived
-  #   git:
-  #     organization: <YOUR_ORG>
-  #     repository: example-api
-  #     clone_url: https://github.com/<YOUR_ORG>/example-api.git
-  #     default_branch: main
-  #   when_to_use:
-  #     - Working on backend API features
-  #     - Modifying REST endpoints
+  lolfold-frontend:
+    purpose: React web app — mobile-first UI for hand input, player profiles, hand replayer, search
+    description: >
+      Vite + React 19 + TypeScript + Tailwind CSS v4. Mobile-first responsive design.
+      Dark mode default. Hand input form, hand list with filters, player profiles,
+      visual hand replayer, AI search interface. Deployed via S3 + CloudFront.
+    local_path: repos/lolfold-frontend
+    default_gate_level: standard
+    status: active
+    git:
+      organization: scottlusk-slalom
+      repository: lolfold-frontend
+      clone_url: https://github.com/scottlusk-slalom/lolfold-frontend.git
+      default_branch: main
+    context:
+      primary: AGENTS.md
+      secondary:
+        - README.md
+    key_directories:
+      src/: Application source code
+      src/components/: React components
+      src/pages/: Page-level components
+    when_to_use:
+      - Working on UI/UX
+      - Hand replayer development
+      - Search and filter interface
+      - Player profile views
+
+  lolfold-api:
+    purpose: Backend API — hand processing, AI integration (Bedrock/Claude), data access
+    description: >
+      Node.js 20 + Express + TypeScript + Prisma ORM. Handles hand submission and
+      AI parsing via Bedrock/Claude, player profile management, search (traditional +
+      AI-powered), session tracking. Dockerized, running on ECS Fargate. PostgreSQL via RDS.
+    local_path: repos/lolfold-api
+    default_gate_level: standard
+    status: active
+    git:
+      organization: scottlusk-slalom
+      repository: lolfold-api
+      clone_url: https://github.com/scottlusk-slalom/lolfold-api.git
+      default_branch: main
+    context:
+      primary: AGENTS.md
+      secondary:
+        - README.md
+    key_directories:
+      src/: Application source code
+    when_to_use:
+      - Hand parsing and AI integration
+      - API endpoint development
+      - Data model and storage
+      - Player profile logic
+      - Search implementation
+
+  lolfold-infra:
+    purpose: Terraform infrastructure — Cognito, RDS, Bedrock access, ECS, networking
+    description: >
+      Terraform IaC for all AWS resources. VPC, RDS PostgreSQL 17.4, ECS Fargate,
+      S3+CloudFront, Bedrock IAM, ECR, security groups. Single region (us-west-2).
+    local_path: repos/lolfold-infra
+    default_gate_level: standard
+    status: active
+    git:
+      organization: scottlusk-slalom
+      repository: lolfold-infra
+      clone_url: https://github.com/scottlusk-slalom/lolfold-infra.git
+      default_branch: main
+    context:
+      primary: README.md
+    key_directories:
+      modules/: Terraform modules
+    when_to_use:
+      - Infrastructure changes
+      - Adding new AWS resources
+      - Security group or networking changes
+      - Cognito configuration
 
 selection_guidelines:
-  # Add guidelines for when to select each repository for a spec
-  # example-api: Use for API feature work, bug fixes, and endpoint changes
+  lolfold-frontend: UI work, component development, hand replayer, visual search/filter
+  lolfold-api: API endpoints, AI/Bedrock integration, data model, business logic
+  lolfold-infra: AWS resources, Terraform, networking, auth infrastructure
