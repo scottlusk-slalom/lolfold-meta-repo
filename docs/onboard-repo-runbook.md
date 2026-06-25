@@ -1,0 +1,73 @@
+---
+type: runbook
+status: active
+---
+
+# Onboard Repo Runbook
+
+Step-by-step guide to bring any repository from zero to loop-ready.
+
+## Path A: New Repo from Template
+
+1. **Propose**: `/register-repo --status proposed`
+2. **Approve**: Architecture review → `/promote-repo planned`
+3. **Scaffold**: `/scaffold-repo <name> --template <nestjs|nextjs|worker>`
+4. **Verify**: `/repo-status repos/<name>`
+
+## Path B: Existing Repo
+
+1. **Register**: `/register-repo <org/name> --status active`
+2. **Clone**: `git clone <url> repos/<name>`
+3. **Initialize**: `/init-repo repos/<name> --framework jest --gate-level minimal`
+4. **Fix issues**: Address any validation failures
+5. **Verify**: `/repo-status repos/<name>`
+
+## What `/init-repo` Does
+
+```
+Step A: generate-loop-config.sh → _loop-config.yaml
+Step B: validate-loop-config.sh → schema check
+Step C: /aos-loop-init          → CLAUDE.md + AGENTS.md setup
+Step D: validate-gp.sh          → Golden Path compliance (advisory)
+Step E: CI check                → Advisory
+```
+
+Result: READY (all A–D pass) or NOT READY (with failure details).
+
+## Troubleshooting
+
+### `_loop-config.yaml` validation fails
+- Check `test.framework` is one of: jest, vitest, mocha, pytest, go-test
+- Check `gates.default_level` is one of: minimal, standard, full
+- Ensure `compliance.rules` includes ALL of: SEC-001, SEC-002, PLAT-001
+- Run: `./scripts/validate-loop-config.sh repos/<name>/_loop-config.yaml`
+
+### Health endpoint missing
+- Required for `standard` and `full` gate levels
+- Add `/health` or `/healthz` endpoint returning 200
+
+### Observability SDK not detected
+- Required by GP rules (engagement-specific)
+- Check `org/golden-path/requirements.md` for exact requirements
+
+### CI not green
+- Advisory only — does not block `/init-repo`
+- Fix before dispatching `/multi-repo-aos-loop` with `--gates standard` or higher
+
+### CLAUDE.md not generated
+- `/aos-loop-init` must create this file
+- If missing after init, check AOS toolkit installation
+- Manual fallback: create minimal CLAUDE.md pointing to AGENTS.md
+
+## Template Types
+
+Adapt these per your stack:
+- `nestjs-api` — Backend API service
+- `nextjs-app` — Frontend web application
+- `nestjs-workers` — Background job processors
+- `migration` — Database migration service
+
+## Key Convention
+
+All repos live at `repos/<name>/` — this is a hard convention that scripts depend on.
+Golden Path compliance is a gate before loop dispatch.

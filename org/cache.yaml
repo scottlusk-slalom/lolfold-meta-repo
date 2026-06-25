@@ -1,0 +1,15 @@
+refresh_strategy: manual
+stale_after_days: 30
+sources:
+  - name: golden-path
+    description: Platform standards and deployment requirements
+    source_repo: <YOUR_ORG>/platform-handbook
+    source_path: docs/services/golden-path/
+    local_distill: golden-path/
+    local_clone: sources/platform-handbook/
+    distilled_files:
+      - golden-path/requirements.md
+      - golden-path/gp-rules.json
+    notes: >
+      To sync: ./scripts/sync-gp.sh
+      To check staleness: ./scripts/sync-gp.sh --check-only
