@@ -1,18 +1,15 @@
-# Meta-repo conventions
-# Cloned repositories within specs (managed separately)
-**/repo/
-
-# Volatile scratch memory (task-specific, not committed)
-**/scratch/
-
-# Local archives (optional, for keeping completed specs locally)
-_archive/
-
-# OS files
+specs/**/repo/
+repos/
+architecture/legacy/repos/*/
+.discovery/
+org/sources/*/
+specs/**/context/scratch/
 .DS_Store
-Thumbs.db
-
-# Editor files
+.idea/
+.vscode/
 *.swp
-*.swo
-*~
+.env.acli.local
+scripts/acli.jar
+_local/
+tmp/
+_working/

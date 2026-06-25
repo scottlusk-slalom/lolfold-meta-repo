@@ -1,31 +1,23 @@
 # Project Repositories Configuration
-# List repositories relevant to this project for use with /sync-repo
+# Validate with: ./scripts/validate-repos-yaml.sh
 
 repositories:
-  # Example repository configuration:
-  #
-  # my-backend:
-  #   purpose: Backend API service for the application.
-  #   git:
-  #     organization: my-org
-  #     repository: my-backend
-  #     clone_url: https://github.com/my-org/my-backend.git
-  #     default_branch: main
-  #   context:
-  #     primary: AGENTS.md
-  #     secondary:
-  #       - CLAUDE.md
-  #       - README.md
-  #   typical_clone_location: specs/{type}/{spec-name}/repo/my-backend/
+  # example-api:
+  #   purpose: Backend API service
   #   description: >
-  #     Description of this repository and its role in the project.
-  #   key_directories:
-  #     src/: Application source code
-  #     docs/: Documentation
+  #     Primary REST API serving the frontend application.
+  #   local_path: repos/example-api
+  #   default_gate_level: minimal    # minimal | standard | full
+  #   status: proposed               # proposed | planned | active | legacy | archived
+  #   git:
+  #     organization: <YOUR_ORG>
+  #     repository: example-api
+  #     clone_url: https://github.com/<YOUR_ORG>/example-api.git
+  #     default_branch: main
   #   when_to_use:
-  #     - Working on backend features
-  #     - Modifying API endpoints
+  #     - Working on backend API features
+  #     - Modifying REST endpoints
 
 selection_guidelines:
-  # Add guidelines for when to clone each repository
-  # example-repo: Use for feature work, bug fixes, and API changes
+  # Add guidelines for when to select each repository for a spec
+  # example-api: Use for API feature work, bug fixes, and endpoint changes
