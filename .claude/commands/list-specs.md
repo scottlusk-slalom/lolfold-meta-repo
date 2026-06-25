@@ -1,46 +1,30 @@
-# List Specs
+# /list-specs
 
-Show all specs in the repository organized by type and status.
+Display all specs organized by type and status.
 
-## Instructions
+## Usage
+/list-specs
 
-1. Search for all spec directories in `specs/*/`
+## Behavior
 
-2. For each spec found:
-   - Read the YAML front matter from the `.spec.md` file
-   - Extract: type, status, priority, created date, and tags
+1. Scan `specs/*/**/*.spec.md` for all spec files
+2. Parse YAML frontmatter: `type`, `status`, `priority`, `created`, `tags`
+3. Display grouped by status in lifecycle order:
+   - specified → planned → executed → submitted → archived
+4. Within each group, sort by priority (high → medium → low) then created date
 
-3. Display the specs in a formatted table grouped by status:
-   - **Active Specs** (status: active)
-   - **Draft Specs** (status: draft)
-   - **Completed Specs** (status: completed)
-   - **Archived Specs** (status: archived)
-
-4. For each spec, show:
-   - Type (feature/bug/chore/design/planning)
-   - Name (from directory name)
-   - Priority (if set)
-   - Created date
-   - Brief summary (first line of "Problem Statement" or "Objectives" section)
-
-5. Include a count of specs by type and status at the end.
-
-Example output format:
+## Output Format
 ```
-## Active Specs (2)
+## Specified (3)
+| Spec | Type | Priority | Created | Tags |
+|------|------|----------|---------|------|
+| ...  | ...  | ...      | ...     | ...  |
 
-| Type    | Name              | Priority | Created    | Summary                                  |
-|---------|-------------------|----------|------------|------------------------------------------|
-| chore   | meta-repo-setup   | high     | 2025-12-11 | Establish meta-repository structure      |
-| feature | user-auth         | medium   | 2025-12-15 | Add authentication system                |
-
-## Draft Specs (1)
-
-| Type    | Name              | Priority | Created    | Summary                                  |
-|---------|-------------------|----------|------------|------------------------------------------|
-| design  | api-gateway       | low      | 2025-12-16 | Evaluate API gateway options             |
-
----
-Summary: 3 total specs (2 active, 1 draft)
-By type: 1 chore, 1 feature, 1 design
+## Planned (1)
+...
 ```
+
+## Notes
+- Read-only — writes nothing
+- Never halts — reports empty table if no specs found
+- Skips files with invalid/missing frontmatter (warns inline)
