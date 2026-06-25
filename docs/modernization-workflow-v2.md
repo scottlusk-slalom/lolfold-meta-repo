@@ -57,11 +57,11 @@ Full end-to-end execution workflow with all commands, agents, and phase gates.
 2. `setup-worktree.sh` — git worktree at `specs/<type>/<key>/repo/<repo>/`
 3. `stage-context.sh` — copy spec + analysis into `_working/<key>/`
 4. `check-deps.sh` — verify local services reachable
-5. `/aos-plan` — generate implementation plan (retries: 0)
-6. `/aos-execute` — TDD implementation (retries: 3)
+5. `/plan-impl` — generate implementation plan (retries: 0)
+6. `/execute-impl` — TDD implementation (retries: 3)
 7. `check-mock-violations.sh` — enforce integration constraints
-8. `/aos-submit-pr` — open pull request (retries: 1)
-9. `/pr-review` — review the PR
+8. `/review-impl` — adversarial review (PASS/FAIL gate)
+9. `/submit-pr` — push branch + open PR (retries: 1)
 10. `persist-plan.sh` — copy plan to tracked `plans/` dir
 11. `/update-gate <key> executed`
 12. `/update-gate <key> submitted --evidence <pr-url>`

@@ -15,8 +15,10 @@ Take a cloned repo from zero to loop-ready.
 - Run `./scripts/validate-loop-config.sh <path>/_loop-config.yaml`
 - Halt if validation fails (unless `--force`)
 
-### Step C: AOS Loop Init
-- Run `/aos-loop-init` in the target repo
+### Step C: Harness Init
+- Generate `<path>/CLAUDE.md` pointing to AGENTS.md (if not present)
+- Generate or append `## Testing Strategy` section to `<path>/AGENTS.md`
+- Detect test framework from package.json/config and document in AGENTS.md
 - Halt if `CLAUDE.md` not created or no `AGENTS.md` exists after this step
 
 ### Step D: Golden Path Validation (unless `--skip-gp`)
@@ -45,5 +47,4 @@ Take a cloned repo from zero to loop-ready.
 ## Delegates To
 - `./scripts/generate-loop-config.sh`
 - `./scripts/validate-loop-config.sh`
-- `/aos-loop-init`
 - `./scripts/validate-gp.sh`

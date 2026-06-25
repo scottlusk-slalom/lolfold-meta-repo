@@ -19,8 +19,8 @@ DEST_DIR="specs/${SPEC_TYPE}/${SPEC_KEY}/plans"
 mkdir -p "$DEST_DIR"
 
 # Standard mode: single plan file
-if [[ -f "${SOURCE_DIR}/aos-plan.md" ]]; then
-  cp "${SOURCE_DIR}/aos-plan.md" "${DEST_DIR}/${REPO_NAME}.plan.md"
+if [[ -f "${SOURCE_DIR}/impl-plan.md" ]]; then
+  cp "${SOURCE_DIR}/impl-plan.md" "${DEST_DIR}/${REPO_NAME}.plan.md"
   echo "Persisted plan: ${DEST_DIR}/${REPO_NAME}.plan.md"
 # Split mode: phases/build/plans/ directory
 elif [[ -d "${SOURCE_DIR}/phases/build/plans/" ]]; then

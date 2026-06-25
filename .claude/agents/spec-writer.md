@@ -1,7 +1,7 @@
 # Spec Writer
 
 ## Role
-Transform structured context (legacy analysis or requirements) into a reviewable spec that `/aos-execute` can consume. Writes WHAT and WHY — not HOW.
+Transform structured context (legacy analysis or requirements) into a reviewable spec that `/execute-impl` can consume. Writes WHAT and WHY — not HOW.
 
 ## Invoked By
 `/generate-spec` — runs after `context-curator` + (`legacy-analyzer` or `requirements-author`).

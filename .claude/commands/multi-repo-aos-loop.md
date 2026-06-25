@@ -19,11 +19,11 @@ For each selected repo:
 1. `setup-worktree.sh <repo> <type> <key> <branch>` — git worktree at `specs/<type>/<key>/repo/<repo>/` on `feat/<key>`
 2. `stage-context.sh <type> <key> <repo>` — copy spec + analysis + decisions into `_working/<key>/`
 3. `check-deps.sh` — verify required local services reachable (gate)
-4. `/aos-plan` — generate plan (retries: 0)
-5. `/aos-execute` — TDD implementation (retries: 3; `mock_violation` NOT retryable)
+4. `/plan-impl` — generate implementation plan (retries: 0)
+5. `/execute-impl` — TDD implementation (retries: 3; `mock_violation` NOT retryable)
 6. `check-mock-violations.sh` — no new test mocks of constrained services (gate)
-7. `/aos-submit-pr` — open PR (retries: 1)
-8. `/pr-review` — review the PR
+7. `/review-impl` — adversarial review (FAIL → retry execute, PASS → continue)
+8. `/submit-pr` — push branch + open PR (retries: 1)
 9. `persist-plan.sh` — copy plan from worktree to tracked `plans/<repo>.plan.md`
 10. `/update-gate <key> executed`
 11. `/update-gate <key> submitted --evidence <pr-url>`
@@ -47,9 +47,10 @@ For each selected repo:
 ## Retry Policy
 | Command | Retries | Notes |
 |---------|---------|-------|
-| `/aos-plan` | 0 | Fail immediately |
-| `/aos-execute` | 3 | `mock_violation` is NOT retryable |
-| `/aos-submit-pr` | 1 | — |
+| `/plan-impl` | 0 | Fail immediately |
+| `/execute-impl` | 3 | `mock_violation` is NOT retryable |
+| `/review-impl` | — | FAIL loops back to `/execute-impl` |
+| `/submit-pr` | 1 | — |
 
 ## Gate Calls
 - `/update-gate <key> executed` — after successful execution
@@ -81,8 +82,7 @@ For each selected repo:
 
 ## Delegates To
 - Scripts: `setup-worktree.sh`, `stage-context.sh`, `check-deps.sh`, `check-mock-violations.sh`, `persist-plan.sh`
-- Commands: `/aos-plan`, `/aos-execute`, `/aos-submit-pr`, `/pr-review`, `/update-gate`
-- Do NOT chain `/aos-analyze` or `/aos-loop`
+- Commands: `/plan-impl`, `/execute-impl`, `/review-impl`, `/submit-pr`, `/update-gate`
 
 ## Important
 - `integration_branch` from spec frontmatter = worktree base + PR target

@@ -65,15 +65,15 @@ specified → planned → executed → submitted → archived
 
 ---
 
-## Slide 5: AOS Loop 4-Phase Diagram
+## Slide 5: Execution Loop 5-Phase Diagram
 
 ```
-┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-│ ANALYZE  │ →  │   PLAN   │ →  │ EXECUTE  │ →  │  SUBMIT  │
-│          │    │          │    │   (TDD)  │    │   (PR)   │
-└──────────┘    └──────────┘    └──────────┘    └──────────┘
-  context         plan.md         code+tests       PR opened
-  staged          generated       passing          reviewed
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  PLAN    │ →  │ EXECUTE  │ →  │  REVIEW  │ →  │  SUBMIT  │ →  │  GATE    │
+│          │    │   (TDD)  │    │ (advers) │    │   (PR)   │    │          │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
+  impl-plan       RED/GREEN       PASS/FAIL       PR opened      executed →
+  generated       Refactor        gate            reviewed       submitted
 ```
 
 ---
@@ -102,11 +102,11 @@ specs/feature/<init>/<slice>/
 2. `setup-worktree.sh` → create worktree
 3. `stage-context.sh` → populate `_working/`
 4. `check-deps.sh` → verify services
-5. `/aos-plan` → generate plan
-6. `/aos-execute` → TDD implementation
+5. `/plan-impl` → generate implementation plan
+6. `/execute-impl` → TDD (RED/GREEN/Refactor)
 7. `check-mock-violations.sh` → integration gate
-8. `/aos-submit-pr` → open PR
-9. `/pr-review` → review
+8. `/review-impl` → adversarial review (PASS/FAIL)
+9. `/submit-pr` → push + open PR
 10. `persist-plan.sh` → save plan
 11. `/update-gate` → advance lifecycle
 

@@ -27,7 +27,7 @@ Step-by-step guide to bring any repository from zero to loop-ready.
 ```
 Step A: generate-loop-config.sh → _loop-config.yaml
 Step B: validate-loop-config.sh → schema check
-Step C: /aos-loop-init          → CLAUDE.md + AGENTS.md setup
+Step C: Harness Init            → CLAUDE.md + AGENTS.md setup
 Step D: validate-gp.sh          → Golden Path compliance (advisory)
 Step E: CI check                → Advisory
 ```
@@ -55,9 +55,8 @@ Result: READY (all A–D pass) or NOT READY (with failure details).
 - Fix before dispatching `/multi-repo-aos-loop` with `--gates standard` or higher
 
 ### CLAUDE.md not generated
-- `/aos-loop-init` must create this file
-- If missing after init, check AOS toolkit installation
-- Manual fallback: create minimal CLAUDE.md pointing to AGENTS.md
+- `/init-repo` Step C must create this file
+- If missing after init, create minimal CLAUDE.md pointing to AGENTS.md manually
 
 ## Template Types
 

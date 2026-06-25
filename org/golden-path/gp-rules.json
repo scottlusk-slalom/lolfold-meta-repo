@@ -21,7 +21,7 @@
         "type": "file_exists",
         "path": "AGENTS.md"
       },
-      "remediation": "Run /aos-loop-init in the target repo to generate AGENTS.md"
+      "remediation": "Run /init-repo on the target repo to generate AGENTS.md"
     },
     {
       "id": "GP-003",
