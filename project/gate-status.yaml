@@ -1,0 +1,12 @@
+# Gate Status — tracks lifecycle state of active specs
+# Updated by /approve and /update-gate commands
+
+specs:
+  hand-replayer-ui-enhancements:
+    type: feature
+    status: archived
+    approved_at: 2026-07-01
+    submitted_at: 2026-07-01
+    archived_at: 2026-07-01
+    evidence: https://github.com/scottlusk-slalom/lolfold-frontend/pull/14
+    path: specs/archive/hand-replayer-ui-enhancements/

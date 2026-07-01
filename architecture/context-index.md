@@ -33,7 +33,7 @@ These documents are loaded for every spec regardless of type:
 
 | Document | Purpose |
 |----------|---------|
-| `org/golden-path/requirements.md` | Platform compliance requirements |
+| `org/` | Platform compliance requirements |
 
 ## Load by Task
 
@@ -63,10 +63,9 @@ These documents are loaded for every spec regardless of type:
 ### Patterns
 | Document | Description |
 |----------|-------------|
-| (none yet — add as patterns are validated) | |
+| `architecture/patterns/msw-dev-mode-mocking.md` | MSW browser worker for backend-independent frontend dev and testing |
 
 ### Org Tier
 | Document | Description |
 |----------|-------------|
-| `org/golden-path/requirements.md` | Platform compliance requirements |
-| `org/golden-path/gp-rules.json` | Machine-checkable validation rules |
+| `org/` | Platform standards and requirements |

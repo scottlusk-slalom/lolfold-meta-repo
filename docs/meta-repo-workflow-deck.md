@@ -133,7 +133,7 @@ specs/feature/<init>/<slice>/
 Fill in per engagement:
 - Legacy endpoints → `architecture/legacy/service_inventory.md`
 - Integration map → `architecture/legacy/integration_map.md`
-- Platform requirements → `org/golden-path/requirements.md`
+- Platform requirements → `org/`
 
 ---
 
@@ -183,4 +183,4 @@ Fill in per engagement:
 | Playbooks | `playbooks/*.md` |
 | Gate tracking | `project/gate-status.yaml` |
 | Repo registry | `project/project-repositories.yaml` |
-| Platform rules | `org/golden-path/gp-rules.json` |
+| Platform rules | `org/` |

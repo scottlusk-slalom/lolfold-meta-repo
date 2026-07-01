@@ -29,9 +29,9 @@ Link to the spec or PR where this was first validated.
 2. Write the pattern file: `architecture/patterns/<name>.md`
 3. Register in `architecture/context-index.md`
 
-## Distinction from `org/golden-path/`
+## Distinction from `org/`
 
-- `org/golden-path/` — platform-wide requirements (apply to ALL repos)
+- `org/` — platform-wide requirements (apply to ALL repos)
 - `architecture/patterns/` — project-specific patterns (apply to THIS project)
 
 Platform-wide patterns belong in the org tier. Project patterns go here.

@@ -32,7 +32,7 @@ Each spec's `context/CONTEXT.md` is a manifest of selected references:
 1. Load `architecture/context-index.md` (or `architecture/README.md` if absent)
 2. Load spec-specific `context/CONTEXT.md` and its referenced docs
 3. Load repo-level context (`repos/<name>/AGENTS.md`)
-4. Load org-level requirements if infrastructure work (`org/golden-path/requirements.md`)
+4. Load org-level requirements if infrastructure work (see `org/` directory)
 
 ## Memory Promotion Decision Table
 
@@ -72,4 +72,4 @@ Files in `specs/*/context/scratch/`:
 - 30-day refresh TTL (configurable via `stale_after_days`)
 - Source tracked in `org/cache.yaml` `sources[]`
 - Committed to version control (unlike scratch)
-- Synced via `./scripts/sync-gp.sh`
+- Synced manually per engagement

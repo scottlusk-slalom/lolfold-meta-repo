@@ -21,16 +21,12 @@ Take a cloned repo from zero to loop-ready.
 - Detect test framework from package.json/config and document in AGENTS.md
 - Halt if `CLAUDE.md` not created or no `AGENTS.md` exists after this step
 
-### Step D: Golden Path Validation (unless `--skip-gp`)
-- Run `./scripts/validate-gp.sh <path>`
-- GP failures are ADVISORY — continue regardless, but report findings
-
-### Step E: CI Check (advisory)
+### Step D: CI Check (advisory)
 - Check if CI config exists and is valid
 - Advisory only — continue regardless
 
 ## Result
-- READY: all steps A–D pass
+- READY: all steps A–C pass
 - NOT READY: report which steps failed
 
 ## Reads
@@ -47,4 +43,3 @@ Take a cloned repo from zero to loop-ready.
 ## Delegates To
 - `./scripts/generate-loop-config.sh`
 - `./scripts/validate-loop-config.sh`
-- `./scripts/validate-gp.sh`

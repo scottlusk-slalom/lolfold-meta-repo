@@ -211,13 +211,6 @@ All 23 commands are customizable:
 - `/multi-repo-loop`
 - And more...
 
-#### org/golden-path/
-Populate platform requirements per engagement:
-- Technology standards
-- Security requirements
-- Compliance checkpoints
-- Deployment patterns
-
 ## 7. Common Workflows
 
 ### Feature Development

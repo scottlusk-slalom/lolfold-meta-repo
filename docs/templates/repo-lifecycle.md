@@ -25,7 +25,7 @@ not-started → planning → in-flight → complete
 | Transition | Requirements |
 |-----------|-------------|
 | proposed → planned | Architecture review complete, team assigned |
-| planned → active | Repo provisioned on GitHub, Golden Path validated |
+| planned → active | Repo provisioned on GitHub, platform validated |
 | active → archived | All specs completed, no active references |
 
 ## Tools
@@ -38,13 +38,12 @@ not-started → planning → in-flight → complete
 | `/onboard-legacy-repo` | Onboard existing legacy system |
 | `validate-repos-yaml.sh` | Lint registry file |
 | `validate-repo-lifecycle.sh` | Check lifecycle integrity |
-| `validate-gp.sh` | Golden Path compliance check |
 
 ## Workflow Steps
 
 1. **Discovery** — Identify repos needed for the program
 2. **Propose** — `/register-repo` with purpose and team
 3. **Review** — Architecture review, template selection
-4. **Provision** — `/scaffold-repo` from Golden Path template
-5. **Validate** — `/init-repo` → Golden Path checks → CI green
+4. **Provision** — `/scaffold-repo` from template
+5. **Validate** — `/init-repo` → platform checks → CI green
 6. **Decommission** — `/promote-repo archived` after all work complete

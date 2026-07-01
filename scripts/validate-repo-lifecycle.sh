@@ -45,7 +45,7 @@ for name, entry in repos.items():
     if not isinstance(entry, dict):
         continue
 
-    # Naming: GP-003
+    # Naming convention check
     if not name_pattern.match(name):
         errors.append(f"{name}: key must match ^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
     if len(name) > 25:

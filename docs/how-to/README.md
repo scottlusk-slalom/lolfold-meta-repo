@@ -7,7 +7,7 @@ Task-first guides for humans working with this meta-repo.
 | Question | Look In |
 |----------|---------|
 | "How do I do X?" | `docs/how-to/` (this directory) |
-| "What are the platform rules?" | `org/golden-path/` |
+| "What are the platform rules?" | `org/` |
 | "How should the AI agent do X?" | `playbooks/` |
 | "What are the authoring standards?" | `docs/` (FRONTMATTER_STANDARDS, THREE_TIER_MEMORY) |
 
@@ -15,11 +15,9 @@ Task-first guides for humans working with this meta-repo.
 
 | Guide | Topic |
 |-------|-------|
-| [golden-path-onboarding.md](golden-path-onboarding.md) | Platform onboarding and GP compliance |
+| [Coming soon] | Populate per engagement |
 
 ## Notes
 - How-to guides are for **humans** — step-by-step recipes for common tasks
 - `playbooks/` is for **agents** — machine instructions injected into the execution loop
 - Never conflate the two
-
-See also: `org/golden-path/golden-path-platform-overview.md` for platform mechanism detail.

@@ -15,7 +15,6 @@ Invoke the engineering-plan-writer agent to produce a scoped, code-analysis-back
    - `architecture/context-index.md`
    - `architecture/legacy/service_inventory.md`
    - `architecture/legacy/integration_map.md`
-   - `org/golden-path/requirements.md`
    - `project/engineering-plan.md` (if exists, as prior context)
    - `repos/` (for code analysis)
 
@@ -35,7 +34,6 @@ Invoke the engineering-plan-writer agent to produce a scoped, code-analysis-back
 - `project/product-brief.md`, `project/project-plan.md`
 - `architecture/context-index.md`
 - `architecture/legacy/service_inventory.md`, `architecture/legacy/integration_map.md`
-- `org/golden-path/requirements.md`
 - `project/engineering-plan.md`
 - `repos/`
 

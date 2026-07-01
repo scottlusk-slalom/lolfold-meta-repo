@@ -28,11 +28,10 @@ Step-by-step guide to bring any repository from zero to loop-ready.
 Step A: generate-loop-config.sh → _loop-config.yaml
 Step B: validate-loop-config.sh → schema check
 Step C: Harness Init            → CLAUDE.md + AGENTS.md setup
-Step D: validate-gp.sh          → Golden Path compliance (advisory)
-Step E: CI check                → Advisory
+Step D: CI check                → Advisory
 ```
 
-Result: READY (all A–D pass) or NOT READY (with failure details).
+Result: READY (all A–C pass) or NOT READY (with failure details).
 
 ## Troubleshooting
 
@@ -47,8 +46,8 @@ Result: READY (all A–D pass) or NOT READY (with failure details).
 - Add `/health` or `/healthz` endpoint returning 200
 
 ### Observability SDK not detected
-- Required by GP rules (engagement-specific)
-- Check `org/golden-path/requirements.md` for exact requirements
+- Required by platform rules (engagement-specific)
+- Check `org/` for exact requirements
 
 ### CI not green
 - Advisory only — does not block `/init-repo`
@@ -69,4 +68,4 @@ Adapt these per your stack:
 ## Key Convention
 
 All repos live at `repos/<name>/` — this is a hard convention that scripts depend on.
-Golden Path compliance is a gate before loop dispatch.
+Platform compliance is a gate before loop dispatch.

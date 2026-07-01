@@ -25,9 +25,8 @@ If a path is given instead, triggers readiness check mode.
 1. Check `_loop-config.yaml` exists and is valid
 2. Check `CLAUDE.md` exists
 3. Check `AGENTS.md` exists
-4. Run `./scripts/validate-gp.sh <path>`
-5. Report pass/fail per check
-6. Exit 0 if all pass, 1 otherwise
+4. Report pass/fail per check
+5. Exit 0 if all pass, 1 otherwise
 
 ## Reads
 - `project/project-repositories.yaml`

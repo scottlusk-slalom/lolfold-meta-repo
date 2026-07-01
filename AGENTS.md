@@ -40,7 +40,6 @@ meta-repo/
 ├── docs/
 │   └── how-to/
 ├── org/
-│   └── golden-path/
 ├── playbooks/
 ├── .claude/
 │   ├── commands/          # 23 slash commands
@@ -49,10 +48,6 @@ meta-repo/
 │   └── agents/            # 9 subagents
 └── scripts/               # Validation and setup scripts
 ```
-
-## Session Start
-
-At the start of each session, silently run `./scripts/sync-gp.sh --check-only`. If the golden path cache is stale, warn the user and suggest running `/golden-path` to refresh.
 
 ## Context Loading
 
@@ -106,9 +101,6 @@ Each spec contains:
 - `/repo-status` — Show repo status
 - `/onboard-legacy-repo` — Onboard legacy repo
 
-### Other
-- `/golden-path` — Sync golden path docs
-
 ## Spec Status Lifecycle
 
 Exact enum: `specified → planned → executed → submitted → archived`
@@ -155,7 +147,6 @@ CONFLUENCE_API_TOKEN=<your-token>
 
 - **Workflow:** See `META-REPO-GUIDE.md` for day-to-day operations
 - **Memory System:** See `docs/THREE_TIER_MEMORY.md` for context persistence
-- **Golden Path:** See `org/golden-path/` for organizational patterns
 - **Playbooks:** See `playbooks/` for runbook procedures
 
 ## Communication Style

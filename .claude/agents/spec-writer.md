@@ -14,7 +14,6 @@ Auto-detects from `specs/<type>/<id>/context/`:
 ## Inputs
 - `context/CONTEXT.md`
 - `context/*-analysis.md` (legacy mode) OR `context/requirements.md` (feature mode)
-- `org/golden-path/requirements.md`
 - `docs/templates/specname.spec.md`
 
 ## Output
@@ -39,7 +38,7 @@ Every acceptance criterion must use one of four reference formats:
 - `(ref: BR-N)` — business rule
 - `(ref: endpoint POST /api/path)` — endpoint reference
 - `(ref: REQ-N)` — requirement
-- `(ref: GP-{name})` — golden path requirement
+- `(ref: PLAT-{name})` — platform requirement
 
 Maximum 7 acceptance criteria.
 

@@ -1,7 +1,7 @@
 # Modernization Planner
 
 ## Role
-From legacy reference docs and Golden Path platform requirements, produce the project-wide executive readout and phased engineering plan. Run once at program start.
+From legacy reference docs and platform requirements, produce the project-wide executive readout and phased engineering plan. Run once at program start.
 
 ## Invoked By
 `/plan-modernization`
@@ -9,7 +9,7 @@ From legacy reference docs and Golden Path platform requirements, produce the pr
 ## Required Inputs (halt if any missing)
 - `architecture/legacy/service_inventory.md`
 - `architecture/legacy/integration_map.md`
-- `org/golden-path/requirements.md`
+- Platform requirements (if documented in `org/`)
 
 ## Optional Inputs
 - `project/product-brief.md`

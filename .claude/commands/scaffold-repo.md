@@ -1,6 +1,6 @@
 # /scaffold-repo
 
-Create a new Golden Path repo from a template on GitHub, clone it locally, and chain `/init-repo`.
+Create a new repo from a template on GitHub, clone it locally, and chain `/init-repo`.
 
 ## Usage
 /scaffold-repo <name> --template <nestjs|nextjs|worker> [--dry-run] [--skip-init]
@@ -13,7 +13,7 @@ Create a new Golden Path repo from a template on GitHub, clone it locally, and c
    - Halt if GitHub repo already exists (check via `gh repo view`)
 
 2. **Create** from template:
-   - `gh repo create ${GP_GITHUB_ORG}/<name> --template ${GP_GITHUB_ORG}/<template>-template --public`
+   - `gh repo create ${GITHUB_ORG}/<name> --template ${GITHUB_ORG}/<template>-template --public`
 
 3. **Clone** to `repos/<name>/`
 

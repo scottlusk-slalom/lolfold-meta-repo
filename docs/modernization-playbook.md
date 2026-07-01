@@ -29,10 +29,8 @@ Single lifecycle reference for modernizing any legacy application.
 - Legacy databases accessed read-only during migration
 - Connection pooling strategy
 
-### GP Template Readiness
-- [ ] Golden Path templates available for target stack
-- [ ] `org/golden-path/requirements.md` populated
-- [ ] `org/golden-path/gp-rules.json` has engagement-specific rules
+### Platform Template Readiness
+- [ ] Platform templates available for target stack
 
 ### Network/Security Constraints
 [POPULATE PER ENGAGEMENT]
