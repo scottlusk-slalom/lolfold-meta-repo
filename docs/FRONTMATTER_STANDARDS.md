@@ -1,142 +1,102 @@
-# YAML Front Matter Standards
+# Frontmatter Standards
 
-This document defines the YAML front matter conventions for spec and plan files in the meta-repository.
+YAML front matter conventions for spec, plan, and slice-map files. Scripts and the loop commands validate against these schemas.
 
-## Spec Files ([specname].spec.md)
-
-Spec files use front matter to track high-level metadata about the work item.
+## Spec Front Matter
 
 ```yaml
 ---
-type: feature          # feature | bug | chore | design | planning
-status: active         # draft | active | completed | archived
-priority: medium       # high | medium | low (optional)
-created: 2025-12-11    # YYYY-MM-DD
-updated: 2025-12-11    # YYYY-MM-DD
-tags: []               # Optional array of tags
-related: []            # Optional array of related spec IDs (e.g., ["01-meta-repo-setup"])
+type: feature              # feature | bug | chore | design | planning
+status: specified          # specified | planned | executed | submitted | archived
+priority: medium           # high | medium | low (optional)
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+tags: []                   # optional
+related: []                # related spec IDs (optional)
 ---
 ```
 
-### Field Definitions
+### Spec Status Lifecycle (exact enum)
+```
+specified → planned → executed → submitted → archived
+```
 
-| Field | Required | Values | Description |
-|-------|----------|--------|-------------|
-| `type` | Yes | `feature`, `bug`, `chore`, `design`, `planning` | Category of work, matches directory structure |
-| `status` | Yes | `draft`, `active`, `completed`, `archived` | Lifecycle status of the spec |
-| `priority` | No | `high`, `medium`, `low` | Relative priority for planning |
-| `created` | Yes | `YYYY-MM-DD` | Date the spec was created |
-| `updated` | Yes | `YYYY-MM-DD` | Date of last update |
-| `tags` | No | Array of strings | Arbitrary tags for categorization |
-| `related` | No | Array of spec IDs | Links to related specs |
+- `specified` — spec authored, requirements defined
+- `planned` — approved and ready for execution
+- `executed` — implementation complete, tests passing
+- `submitted` — PR(s) opened for review
+- `archived` — work merged and spec closed out
 
-### Status Values
-
-- **draft** - Spec is being written, not yet ready for implementation
-- **active** - Spec is approved and ready for/undergoing implementation
-- **completed** - Implementation is complete and validated
-- **archived** - Spec is no longer active (superseded, cancelled, or old)
-
-## Plan Files ([specname].plan.md)
-
-Plan files use front matter to track implementation status and logistics.
+## Plan Front Matter
 
 ```yaml
 ---
-status: in_progress    # not_started | in_progress | completed | on_hold | blocked
-created: 2025-12-11    # YYYY-MM-DD
-updated: 2025-12-11    # YYYY-MM-DD
-assignee: ""           # Optional: person or team responsible
-estimated_effort: ""   # Optional: rough size estimate
-blocker: ""            # Optional: description if status is blocked
+status: not_started        # not_started | approved | in_progress | completed | on_hold | blocked
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+estimated_effort: medium   # low | medium | high
+assignee: ""               # optional
 ---
 ```
 
-### Field Definitions
+### Plan Status Enum
+```
+not_started | approved | in_progress | completed | on_hold | blocked
+```
 
-| Field | Required | Values | Description |
-|-------|----------|--------|-------------|
-| `status` | Yes | `not_started`, `in_progress`, `completed`, `on_hold`, `blocked` | Current implementation status |
-| `created` | Yes | `YYYY-MM-DD` | Date the plan was created |
-| `updated` | Yes | `YYYY-MM-DD` | Date of last update |
-| `assignee` | No | String | Person or team implementing this plan |
-| `estimated_effort` | No | String | Rough size estimate (e.g., "2-3 days", "1 week") |
-| `blocker` | No | String | Brief description of blocker (if status is `blocked`) |
+- `not_started` — scaffolded, not yet reviewed
+- `approved` — reviewed and approved for work
+- `in_progress` — actively being implemented
+- `completed` — all work done
+- `on_hold` — paused, will resume
+- `blocked` — cannot proceed (see blocking questions)
 
-### Status Values
+### `estimated_effort` Rule
+Determined by dependency depth + validation complexity — never human-time durations:
+- `low` — single module, no cross-service deps, straightforward validation
+- `medium` — 2 modules or moderate validation complexity
+- `high` — cross-service, complex validation, or multiple integration points
 
-- **not_started** - Implementation has not begun
-- **in_progress** - Currently being worked on
-- **completed** - Implementation finished and validated
-- **on_hold** - Temporarily paused (not blocked, just deprioritized)
-- **blocked** - Waiting on external dependency or decision
+## Harness-Managed Fields
 
-## Implementation Notes
+These fields are written by specific commands and should not be manually edited:
 
-1. **Date Format**: Always use ISO 8601 date format (`YYYY-MM-DD`)
-2. **Status Tracking**: The plan status is implementation-focused, while spec status is lifecycle-focused
-3. **Updates**: Update the `updated` field whenever the file content changes
-4. **Optional Fields**: Leave optional fields as empty strings or omit them entirely
-5. **Array Format**: Use YAML array syntax for `tags` and `related` fields: `["tag1", "tag2"]` or multi-line format
+| Field | Owner Command | Purpose |
+|-------|--------------|---------|
+| `jira` | `/push-to-jira` | Linked Jira issue key |
+| `jira_story` | `/push-to-jira` | Phase story key (slice maps) |
+| `slice` | `/decompose-phase` | Slice identifier within a phase |
+| `phase` | `/decompose-phase` | Parent phase name |
+| `initiative` | `/generate-spec` | Parent initiative ID |
+| `repos` | `/multi-repo-loop` | Target repos for execution |
+| `slices` | `/decompose-phase` | Slice count (slice maps) |
+| `parallel_steps` | `/decompose-phase` | Step count (slice maps) |
+| `generated` | various | ISO date of generation |
 
-## Examples
+## Slice-Map Spec Front Matter
 
-### Feature Spec Example
+Slice maps carry a subset of fields:
 
 ```yaml
 ---
-type: feature
-status: active
-priority: high
-created: 2025-12-10
-updated: 2025-12-11
-tags: ["authentication", "security"]
-related: ["02-user-management"]
+type: planning
+status: draft              # draft | approved
+phase: <phase-name>
+jira_story: ""             # set by /push-to-jira
+generated: YYYY-MM-DD
+slices: <count>
+parallel_steps: <count>
 ---
 ```
 
-### Bug Spec Example
-
-```yaml
----
-type: bug
-status: active
-priority: high
-created: 2025-12-11
-updated: 2025-12-11
-tags: ["hotfix", "production"]
----
+### Slice Map Status
+```
+draft | approved
 ```
 
-### Plan Example (In Progress)
+Set by `/decompose-phase` (`draft` on sizing violations, `approved` on pass) and `/approve --stage slices`.
 
-```yaml
----
-status: in_progress
-created: 2025-12-10
-updated: 2025-12-11
-assignee: "Engineering Team"
-estimated_effort: "3-4 days"
----
-```
-
-### Plan Example (Blocked)
-
-```yaml
----
-status: blocked
-created: 2025-12-08
-updated: 2025-12-11
-blocker: "Waiting on API design approval from architecture team"
----
-```
-
-## AI Assistant Guidance
-
-When AI assistants create or update specs and plans:
-
-1. Always include front matter with required fields
-2. Set `created` to the current date when creating new files
-3. Update `updated` field to the current date when modifying files
-4. Use appropriate status values based on the current state
-5. Infer `type` from the spec directory location (e.g., `specs/feature/` → `type: feature`)
+## Key Distinctions
+- **Spec status** is lifecycle-focused (where is this work in the pipeline?)
+- **Plan status** is implementation-focused (what is the state of the work itself?)
+- Spec status is consumed by `validate-loop-config.sh` and `/multi-repo-loop`

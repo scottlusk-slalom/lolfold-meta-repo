@@ -1,95 +1,50 @@
-# Generate Spec
+# /generate-spec
 
-Generate a specification, implementation plan, context scratch directory, and status tracker for a unit of work.
+Generate a functional spec and technical plan for a unit of work.
 
-## Lifecycle Stage
+## Usage
+/generate-spec <spec-id> "<brief description>" --type <feature|bug|chore|design|planning> [--scaffold-only] [--skip-curator] [--skip-analyzer] [--dry-run]
 
-`generate-spec` transitions status to **specified**.
+## Behavior
 
-## Instructions
+1. **Scaffold** the spec directory at `specs/<type>/<spec-id>/`:
+   - `<spec-id>.spec.md` (status: specified)
+   - `<spec-id>.plan.md` (status: not_started)
+   - `status.md`
+   - `context/CONTEXT.md`
+   - `context/decisions.md`
 
-### Phase 1: Gather Context
+2. If `--scaffold-only`, stop here.
 
-1. Read `org/` directory for organizational standards and patterns
-2. Read `project/` and `architecture/` for project-level context
-3. Check `specs/` for related or overlapping specs
-4. Review `project/project-repositories.yaml` for known repositories
+3. **Requirements** (brief mode): Invoke `requirements-author` agent to produce ≥3 `REQ-N:` entries in `context/requirements.md`. Halt if brief is empty.
 
-### Phase 2: Analyze
+4. **Context Curation** (unless `--skip-curator`): Invoke `.claude/agents/context-curator.md` to select and stage reference docs into `context/`.
 
-1. Ask the user for:
-   - **What** they want to build/fix/change (the requirement)
-   - **Spec type**: feature, bug, chore, design, or planning
-   - **Spec name**: descriptive kebab-case name
-   - **Optional ID**: ticket/issue ID
-   - **Target repository(ies)**: which repos are affected
+5. **Legacy Analysis** (unless `--skip-analyzer`): If legacy source exists, invoke `.claude/agents/legacy-analyzer.md` to produce `context/*-analysis.md`.
 
-2. Analyze the target codebase(s):
-   - Clone or reference repos as needed
-   - Understand current state relevant to the requirement
-   - Identify integration points and dependencies
+6. **Spec Writing**: Invoke `.claude/agents/spec-writer.md` to produce the final spec.
 
-3. Ask any outstanding clarifying questions before proceeding to planning
+## Halt Conditions
+- `⚠️ DESIGN DECISION REQUIRED` marker in analysis output
+- `### UNRESOLVED:` entries without resolution
+- Brief text is empty (requirements mode)
 
-### Phase 3: Plan & Generate
+## Reads
+- `architecture/context-index.md`
+- `specs/*/<spec-id>/context/requirements.md`
+- `docs/templates/specname.spec.md`
+- `docs/templates/specname.plan.md`
 
-1. Create the spec directory structure:
-   ```
-   specs/{type}/{id}-{name}/
-   ├── {id}-{name}.spec.md      # Functional spec (WHAT/WHY)
-   ├── {id}-{name}.plan.md      # Technical plan (HOW)
-   ├── status.md                # Lifecycle status tracker
-   ├── context/                 # Curated context for this spec
-   │   └── scratch/             # Volatile working memory
-   └── repo/                    # Cloned repositories (gitignored)
-   ```
+## Writes
+- `specs/<type>/<spec-id>/<spec-id>.spec.md` (status: specified)
+- `specs/<type>/<spec-id>/<spec-id>.plan.md` (status: not_started)
+- `specs/<type>/<spec-id>/status.md`
+- `specs/<type>/<spec-id>/context/CONTEXT.md`
+- `specs/<type>/<spec-id>/context/*-analysis.md`
+- `specs/<type>/<spec-id>/context/decisions.md`
 
-2. Generate the spec using `docs/templates/specname.spec.md`:
-   - Fill problem statement, objectives, success criteria
-   - Define explicit scope boundaries
-   - Identify dependencies and assumptions
-
-3. Generate the plan using `docs/templates/specname.plan.md`:
-   - Break work into RED/GREEN/Refactor-compatible tasks
-   - Each success criterion should map to a test
-   - Identify affected systems and testing strategy
-
-4. Create `status.md`:
-   ```markdown
-   ---
-   lifecycle: specified
-   created: {today}
-   updated: {today}
-   approval_gate: pending
-   ---
-   # Status: {spec-name}
-   
-   ## Lifecycle
-   - [x] Specified (generate-spec)
-   - [ ] Planned (approve-spec)
-   - [ ] Executed (execute-spec)
-   - [ ] Submitted (PR created)
-   - [ ] Archived (archive-spec)
-   
-   ## Approval Gate
-   Status: **pending**
-   Approver: —
-   Date: —
-   Notes: —
-   ```
-
-5. Populate `context/scratch/` with analysis findings:
-   - Codebase analysis notes
-   - Relevant patterns discovered
-   - Questions resolved during generation
-
-### Phase 4: Confirm
-
-1. Present the generated spec and plan to the user for review
-2. Highlight any assumptions or areas needing clarification
-3. Remind user to run `approve-spec` when ready to proceed to execution
-
-## Agent References
-
-- Uses: `agents/spec-writer.md` for spec generation
-- Uses: `agents/context-curator.md` for context gathering
+## Delegates To
+- `requirements-author` agent (brief mode)
+- `.claude/agents/context-curator.md`
+- `.claude/agents/legacy-analyzer.md`
+- `.claude/agents/spec-writer.md`

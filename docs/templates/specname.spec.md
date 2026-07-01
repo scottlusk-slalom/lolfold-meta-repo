@@ -1,6 +1,6 @@
 ---
 type: feature          # feature | bug | chore | design | planning
-status: draft          # draft | active | completed | archived
+status: specified      # specified | planned | executed | submitted | archived
 priority: medium       # high | medium | low (optional)
 created: YYYY-MM-DD    # Date this spec was created
 updated: YYYY-MM-DD    # Date of last update

@@ -1,0 +1,3 @@
+refresh_strategy: manual
+stale_after_days: 30
+sources: []
