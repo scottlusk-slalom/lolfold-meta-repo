@@ -3,9 +3,9 @@ type: reference
 status: active
 ---
 
-# Meta-Repo + AOS Workflow Deck
+# Meta-Repo Workflow Deck
 
-Engineering onboarding deck — 12 slides explaining the meta-repo and AOS workflow.
+Engineering onboarding deck — 12 slides explaining the meta-repo workflow.
 
 ---
 
@@ -60,7 +60,7 @@ specs/feature/<id>/
 specified → planned → executed → submitted → archived
     │          │          │           │           │
  /generate  /approve  /multi-repo  /update-gate  /finalize
-  -spec                -aos-loop    (evidence)    -spec
+  -spec                -loop        (evidence)    -spec
 ```
 
 ---
@@ -96,7 +96,7 @@ specs/feature/<init>/<slice>/
 
 ---
 
-## Slide 7: `/multi-repo-aos-loop` — 11 Steps
+## Slide 7: `/multi-repo-loop` — 11 Steps
 
 1. Select repos (from `when_to_use` in registry)
 2. `setup-worktree.sh` → create worktree
@@ -142,7 +142,7 @@ Fill in per engagement:
 ```bash
 /generate-spec my-feature "Add user profile endpoint" --type feature
 /approve my-feature
-/multi-repo-aos-loop my-feature --gates minimal
+/multi-repo-loop my-feature --gates minimal
 /finalize-spec my-feature
 ```
 

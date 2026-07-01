@@ -1,12 +1,12 @@
 # Playbooks
 
-Machine instructions for the AOS Loop agent. These are NOT human how-to guides — see `docs/how-to/` for those.
+Machine instructions for the Loop agent. These are NOT human how-to guides — see `docs/how-to/` for those.
 
 ## How Playbooks Work
 
 1. Playbooks are declared in a repo's `_loop-config.yaml` under the `playbooks:` key
-2. At execute time, `/multi-repo-aos-loop` loads matching playbooks
-3. Playbook instructions are injected into the AOS agent's context during the execute phase
+2. At execute time, `/multi-repo-loop` loads matching playbooks
+3. Playbook instructions are injected into the execution loop agent's context during the execute phase
 4. The agent follows the playbook's constraints alongside the spec
 
 ## Available Playbooks
@@ -40,7 +40,7 @@ applies_when:
 skip_when:                      # Conditions that disable this playbook
   spec_tags_any: [skip-tag]
 requires: [dependency-list]     # Required tools/services
-injects_into: execute           # AOS phase where instructions apply
+injects_into: execute           # Phase where instructions apply
 ---
 ```
 

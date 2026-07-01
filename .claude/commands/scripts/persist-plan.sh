@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# persist-plan.sh — Copy AOS plan from ephemeral worktree to tracked plans/ directory
+# persist-plan.sh — Copy plan from ephemeral worktree to tracked plans/ directory
 # Usage: persist-plan.sh <spec-type> <spec-key> <repo-name>
 
 SPEC_TYPE="${1:-}"

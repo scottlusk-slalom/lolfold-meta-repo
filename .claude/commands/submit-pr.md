@@ -1,6 +1,6 @@
 # /submit-pr
 
-Push branch and open a pull request with spec traceability. Replaces the external `/aos-submit-pr` command.
+Push branch and open a pull request with spec traceability. Replaces the legacy external toolkit.
 
 ## Usage
 /submit-pr [--spec-dir <path>] [--draft] [--target <branch>]

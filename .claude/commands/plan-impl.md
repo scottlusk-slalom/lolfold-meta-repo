@@ -1,6 +1,6 @@
 # /plan-impl
 
-Generate an implementation plan from a staged spec. Replaces the external `/aos-plan` command.
+Generate an implementation plan from a staged spec. Replaces the legacy external toolkit.
 
 ## Usage
 /plan-impl [--spec-dir <path>]

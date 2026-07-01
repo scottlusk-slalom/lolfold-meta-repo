@@ -15,7 +15,7 @@
     },
     {
       "id": "GP-002",
-      "name": "AGENTS.md present (AOS harness readiness)",
+      "name": "AGENTS.md present (harness readiness)",
       "category": "harness",
       "check": {
         "type": "file_exists",

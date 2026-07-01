@@ -83,7 +83,7 @@ Each spec contains:
 - `/generate-engineering-plan` — Generate engineering plan from spec
 
 ### Execution
-- `/multi-repo-aos-loop` — Run AOS loop across repos
+- `/multi-repo-loop` — Run multi-repo loop across repos
 - `/update-gate` — Update feature gate status
 
 ### Post-execution

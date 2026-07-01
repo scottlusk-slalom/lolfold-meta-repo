@@ -62,7 +62,7 @@ For simple, single-feature specs that don't require Jira tracking:
 # Result: spec → planned, plan → approved
 
 # 3. Execute across repositories
-/multi-repo-aos-loop <id> --gates minimal
+/multi-repo-loop <id> --gates minimal
 # Result: per-repo execution → spec → executed → submitted
 
 # 4. Finalize and archive
@@ -208,7 +208,7 @@ Adapt templates to your stack:
 All 23 commands are customizable:
 - `/generate-spec`, `/approve`, `/finalize-spec`
 - `/push-to-jira`, `/sync-jira`, `/jira-to-specs`
-- `/multi-repo-aos-loop`
+- `/multi-repo-loop`
 - And more...
 
 #### org/golden-path/
@@ -225,7 +225,7 @@ Populate platform requirements per engagement:
 /generate-spec feature-123 "Add user profile page" --type feature
 # Review and refine spec
 /approve feature-123
-/multi-repo-aos-loop feature-123
+/multi-repo-loop feature-123
 # Review PRs, get approvals
 /finalize-spec feature-123
 ```

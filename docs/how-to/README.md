@@ -19,7 +19,7 @@ Task-first guides for humans working with this meta-repo.
 
 ## Notes
 - How-to guides are for **humans** — step-by-step recipes for common tasks
-- `playbooks/` is for **agents** — machine instructions injected into the AOS loop
+- `playbooks/` is for **agents** — machine instructions injected into the execution loop
 - Never conflate the two
 
 See also: `org/golden-path/golden-path-platform-overview.md` for platform mechanism detail.

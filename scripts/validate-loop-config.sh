@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# validate-loop-config.sh — Validate _loop-config.yaml against the AOS loop config schema
+# validate-loop-config.sh — Validate _loop-config.yaml against the loop config schema
 # Usage: validate-loop-config.sh [path/to/_loop-config.yaml]
 # Exit: 0 = valid, 1 = errors, 2 = file not found
 

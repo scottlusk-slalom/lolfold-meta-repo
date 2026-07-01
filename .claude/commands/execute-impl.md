@@ -1,6 +1,6 @@
 # /execute-impl
 
-Execute implementation using strict TDD (RED → GREEN → Refactor). Replaces the external `/aos-execute` command.
+Execute implementation using strict TDD (RED → GREEN → Refactor). Replaces the legacy external toolkit.
 
 ## Usage
 /execute-impl [--spec-dir <path>] [--tasks <1,2,3>]

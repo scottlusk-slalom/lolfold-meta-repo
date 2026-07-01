@@ -1,9 +1,9 @@
-# /multi-repo-aos-loop
+# /multi-repo-loop
 
-Core dispatch loop — execute a master spec across multiple target repos via per-repo AOS sub-loops.
+Core dispatch loop — execute a master spec across multiple target repos via per-repo execution sub-loops.
 
 ## Usage
-/multi-repo-aos-loop <SPEC_KEY> [--gates <minimal|standard|full>] [--repos <r1,r2>] [--dry-run] [--strict]
+/multi-repo-loop <SPEC_KEY> [--gates <minimal|standard|full>] [--repos <r1,r2>] [--dry-run] [--strict]
 
 Default `--gates`: `minimal`
 
@@ -58,12 +58,12 @@ For each selected repo:
 - Add `--force` if gate entry is missing or behind `planned`
 
 ## Tracking
-- Commit: `chore(<key>): AOS loop results — {summary}`
+- Commit: `chore(<key>): loop results — {summary}`
 
 ## Reference Docs (injected at runtime)
-- `.claude/commands/references/multi-repo-aos-loop/gate-levels.md`
-- `.claude/commands/references/multi-repo-aos-loop/worktree-layout.md`
-- `.claude/commands/references/multi-repo-aos-loop/cross-repo-contracts.md`
+- `.claude/commands/references/multi-repo-loop/gate-levels.md`
+- `.claude/commands/references/multi-repo-loop/worktree-layout.md`
+- `.claude/commands/references/multi-repo-loop/cross-repo-contracts.md`
 
 ## Reads
 - `specs/*/<key>/<key>.spec.md`

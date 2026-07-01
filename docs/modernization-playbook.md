@@ -48,9 +48,9 @@ Single lifecycle reference for modernizing any legacy application.
 **Watch for**: Template drift, missing GP rules
 
 ### Phase 1: Proof Slice
-**Commands**: `/generate-spec`, `/approve`, `/multi-repo-aos-loop`
+**Commands**: `/generate-spec`, `/approve`, `/multi-repo-loop`
 **Gate**: One slice fully executed end-to-end, PR merged
-**Watch for**: Mock violations, integration gaps, AOS retry exhaustion
+**Watch for**: Mock violations, integration gaps, retry exhaustion
 
 ### Phase 2: External-Facing APIs
 **Commands**: `/decompose-phase`, `/dispatch-batch`

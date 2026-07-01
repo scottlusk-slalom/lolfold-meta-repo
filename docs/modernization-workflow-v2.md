@@ -38,7 +38,7 @@ Full end-to-end execution workflow with all commands, agents, and phase gates.
 | 2 | Planning | `/plan-modernization`, `/generate-engineering-plan` |
 | 3 | Decomposition | `/decompose-phase`, `/approve --stage slices` |
 | 4 | Spec Generation | `/generate-spec`, `/jira-to-specs` |
-| 5 | Execution | `/multi-repo-aos-loop`, `/dispatch-batch` |
+| 5 | Execution | `/multi-repo-loop`, `/dispatch-batch` |
 | 6 | Completion | `/finalize-spec`, `/retrospective` |
 | 7 | Decommission | `/promote-repo archived`, `/archive-spec` |
 
@@ -51,7 +51,7 @@ Full end-to-end execution workflow with all commands, agents, and phase gates.
     → /promote-repo active
 ```
 
-## `/multi-repo-aos-loop` Execution Sequence (12 steps)
+## `/multi-repo-loop` Execution Sequence (12 steps)
 
 1. Select repos from `project/project-repositories.yaml` (`when_to_use` / `selection_guidelines`)
 2. `setup-worktree.sh` — git worktree at `specs/<type>/<key>/repo/<repo>/`
@@ -73,7 +73,7 @@ Phase 1: Context Analysis    → context-curator + legacy-analyzer
 Phase 2: Decomposition       → slice-decomposer
 Phase 3: Approval Gate       → require slice map status: approved
 Phase 4: Feature Spec Gen    → /generate-spec per slice
-Phase 5: Execution           → /multi-repo-aos-loop per slice (step-ordered)
+Phase 5: Execution           → /multi-repo-loop per slice (step-ordered)
 Phase 6: Tracking            → gate updates + tracking commit
 ```
 
@@ -95,7 +95,7 @@ Phase 6: Tracking            → gate updates + tracking commit
 | `/generate-engineering-plan` | scope | scoped plan with code citations |
 | `/decompose-phase` | phase | slice map (sizing-validated) |
 | `/dispatch-batch` | planning-id + steps | executed feature specs |
-| `/multi-repo-aos-loop` | spec-key + gates | PRs per repo |
+| `/multi-repo-loop` | spec-key + gates | PRs per repo |
 
 ### Repo Management
 | Command | Input | Output |

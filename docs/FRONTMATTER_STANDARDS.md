@@ -1,6 +1,6 @@
 # Frontmatter Standards
 
-YAML front matter conventions for spec, plan, and slice-map files. Scripts and the multi-repo-aos-loop validate against these schemas.
+YAML front matter conventions for spec, plan, and slice-map files. Scripts and the loop commands validate against these schemas.
 
 ## Spec Front Matter
 
@@ -68,7 +68,7 @@ These fields are written by specific commands and should not be manually edited:
 | `slice` | `/decompose-phase` | Slice identifier within a phase |
 | `phase` | `/decompose-phase` | Parent phase name |
 | `initiative` | `/generate-spec` | Parent initiative ID |
-| `repos` | `/multi-repo-aos-loop` | Target repos for execution |
+| `repos` | `/multi-repo-loop` | Target repos for execution |
 | `slices` | `/decompose-phase` | Slice count (slice maps) |
 | `parallel_steps` | `/decompose-phase` | Step count (slice maps) |
 | `generated` | various | ISO date of generation |
@@ -99,4 +99,4 @@ Set by `/decompose-phase` (`draft` on sizing violations, `approved` on pass) and
 ## Key Distinctions
 - **Spec status** is lifecycle-focused (where is this work in the pipeline?)
 - **Plan status** is implementation-focused (what is the state of the work itself?)
-- Spec status is consumed by `validate-loop-config.sh` and `/multi-repo-aos-loop`
+- Spec status is consumed by `validate-loop-config.sh` and `/multi-repo-loop`

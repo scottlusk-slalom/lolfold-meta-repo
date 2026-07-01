@@ -1,6 +1,6 @@
 # Gate Levels Reference
 
-Runtime behavior for each gate level, consumed by `/multi-repo-aos-loop` and enforced by `validate-loop-config.sh`.
+Runtime behavior for each gate level, consumed by `/multi-repo-loop` and enforced by `validate-loop-config.sh`.
 
 ## Enum Values (authoritative)
 

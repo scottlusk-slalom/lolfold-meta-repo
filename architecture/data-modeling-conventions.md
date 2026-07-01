@@ -5,7 +5,7 @@ Canonical type-mapping and safe-default rules for translating any source data mo
 ## Consumers
 - `context-curator` agent (stages this doc for data-layer specs)
 - `spec-writer` agent (applies type mapping in ACs)
-- AOS Loop coder (via `datastore-schema-modeling` playbook)
+- Loop coder (via `datastore-schema-modeling` playbook)
 
 ## Identifier Convention
 

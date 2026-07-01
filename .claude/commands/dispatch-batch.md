@@ -1,6 +1,6 @@
 # /dispatch-batch
 
-Full pipeline from planning spec to executed slices: analyze → decompose → generate feature specs → dispatch AOS loops per step.
+Full pipeline from planning spec to executed slices: analyze → decompose → generate feature specs → dispatch loops per step.
 
 ## Usage
 /dispatch-batch <planning-spec-id> --steps <A,B,...> [--dry-run] [--skip-analysis] [--skip-decompose] [--skip-generate] [--gates <minimal|standard|full>]
@@ -32,7 +32,7 @@ Default `--gates`: `minimal`
   - ALL slices in step A must complete before step B starts
   - Within a step: slices targeting different modules may run parallel
   - Within a step: slices targeting same files must run sequential
-  - Call `/multi-repo-aos-loop <slice-id> --gates <level>` per slice
+  - Call `/multi-repo-loop <slice-id> --gates <level>` per slice
 
 ### Phase 6: Tracking
 - Update `specs/planning/<id>/status.md`
@@ -60,4 +60,4 @@ Default `--gates`: `minimal`
 - `legacy-analyzer` agent
 - `slice-decomposer` agent
 - `/generate-spec`
-- `/multi-repo-aos-loop`
+- `/multi-repo-loop`

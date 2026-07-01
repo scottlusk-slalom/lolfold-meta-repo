@@ -52,7 +52,7 @@ Result: READY (all A–D pass) or NOT READY (with failure details).
 
 ### CI not green
 - Advisory only — does not block `/init-repo`
-- Fix before dispatching `/multi-repo-aos-loop` with `--gates standard` or higher
+- Fix before dispatching `/multi-repo-loop` with `--gates standard` or higher
 
 ### CLAUDE.md not generated
 - `/init-repo` Step C must create this file
