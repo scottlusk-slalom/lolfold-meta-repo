@@ -97,6 +97,9 @@ Each spec contains:
 - `/sync-jira` — Bidirectional sync with Jira
 - `/fetch-confluence` — Fetch Confluence docs
 
+### Project Setup (Greenfield)
+- `/scaffold-project` — Interactive project context scaffolding (generates product-brief, project-plan, repos yaml, context-index)
+
 ### Repository Management
 - `/register-repo` — Register a new repo
 - `/promote-repo` — Promote repo status
