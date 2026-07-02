@@ -8,7 +8,7 @@ manifest_version: "1"       # schema version of this manifest format
 # Upstream template — only present in derived repos (not in the source template)
 # Set repo to a local clone path or git URL of ae-harness-platform-poc
 upstream:
-  repo: ""        # e.g. /path/to/ae-harness-platform-poc  OR  git@github.com:org/ae-harness-platform-poc.git
+  repo: "https://github.com/Slalom/ae-harness-platform-poc.git"
   pinned_at: ""   # set automatically by scripts/update-template.sh
 
 # Framework paths — files/dirs from the template that are synced wholesale
