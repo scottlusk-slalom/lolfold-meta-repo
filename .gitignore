@@ -13,3 +13,5 @@ scripts/acli.jar
 _local/
 tmp/
 _working/
+.template-cache/
+.template-contribution.yaml

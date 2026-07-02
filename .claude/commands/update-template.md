@@ -56,8 +56,12 @@ Parse `template-manifest.yaml` for:
 
 ### 3. Resolve Upstream
 - If `upstream.repo` is a local path: use it directly
-- If `upstream.repo` is a git URL: shallow-clone to a temp directory `/tmp/harness-template-sync-<timestamp>`; clean up on exit (even on error)
+- If `upstream.repo` is a git URL: use `.template-cache/` as a persistent shallow clone
+  - If `.template-cache/.git` exists: `git fetch origin --depth 1` + reset to upstream HEAD
+  - If no cache: shallow-clone into `.template-cache/` (first sync)
 - If the path/URL is unreachable: print a clear error with the value that failed, then halt
+
+The cache clone is also used by `/contribute-upstream` (which unshallows it to push branches).
 
 ### 4. Version Check
 - Read `template_version` from the upstream `template-manifest.yaml`
@@ -91,11 +95,11 @@ Track count of files updated.
 
 ### 8. Merge Base Resolution
 For each path in `merge[]`, the three-way merge base is resolved in this order:
-1. `.template-cache/<pinned_version>/<file>` — exact upstream state at the last sync (most accurate)
-2. `git show HEAD:<file>` — last committed local version (fallback if no cache entry)
+1. `.template-cache/` clone at the pinned version tag (`v<pinned_at>:<file>`) — exact upstream state at last sync
+2. `git show HEAD:<file>` — last committed local version (fallback if no tag)
 3. Local working copy — last resort
 
-The cache entry is always preferred because it captures what upstream looked like *at pin time*, not what was locally committed. This avoids false conflicts caused by local edits made after the last sync.
+The cache clone tag is preferred because it captures what upstream looked like *at pin time*, not what was locally committed. This avoids false conflicts caused by local edits made after the last sync.
 
 ### 9. Merge Review (skipped in `--check-only` and `--dry-run`)
 For each path in `merge[]`:
@@ -109,14 +113,8 @@ For each path in `merge[]`:
     ✗  some-other.md  (conflicts — review required)
   ```
 
-### 10. Populate Cache (skipped in `--check-only` and `--dry-run`)
-After a successful sync, copy each upstream `merge[]` file into:
-```
-.template-cache/<upstream_version>/<merge_path>
-```
-This snapshot becomes the merge base for the *next* sync. Old version directories are left in place (cheap, useful for audit trail).
-
-### 11. Update Manifest (skipped in `--check-only` and `--dry-run`)
+### 10. Tag Cache + Update Manifest (skipped in `--check-only` and `--dry-run`)
+- Tag the cache clone at the new version (`v<upstream_version>`) for future merge-base lookups
 - Set `upstream.pinned_at` in `template-manifest.yaml` to the upstream `template_version`
 
 ### 12. Final Report
@@ -182,18 +180,18 @@ and is never touched by the sync.
 - `template-manifest.yaml`
 - All paths under `framework[]` and `merge[]`
 - `.template-overrides/` (override skip list)
-- `.template-cache/<pinned_version>/` (merge base for `merge[]` files)
+- `.template-cache/` clone at pinned version tag (merge base for `merge[]` files)
 
 ## Writes (live mode only)
 - All paths under `framework[]` not in `.template-overrides/`
 - All paths under `merge[]` (merged in place)
 - `template-manifest.yaml` (`upstream.pinned_at`)
-- `.template-cache/<new_version>/` (upstream snapshot of `merge[]` files)
+- `.template-cache/` — shallow clone (created on first run) or fetch-updated
+- Version tag in `.template-cache/` (`v<upstream_version>`)
 
 ## Never Touches
 - Anything listed under `project[]` in `template-manifest.yaml`
 - Any framework path with a matching file in `.template-overrides/`
-- `.template-cache/` entries from prior versions (left as audit trail)
 
 ## Delegates To
 - `scripts/update-template.sh`
