@@ -59,6 +59,11 @@ else:
         if not isinstance(when_to_use, list) or len(when_to_use) == 0:
             errors.append(f"{name}: when_to_use must be a non-empty list")
 
+        status = entry.get('status')
+        gate = entry.get('default_gate_level')
+        if status in ('archived', 'legacy') and gate == 'full':
+            errors.append(f"{name}: status '{status}' is incompatible with default_gate_level 'full'")
+
         git = entry.get('git', {})
         if not isinstance(git, dict):
             errors.append(f"{name}: git must be a mapping")
