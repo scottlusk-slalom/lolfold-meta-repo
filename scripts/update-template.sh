@@ -309,7 +309,7 @@ for fpath in "${FRAMEWORK_PATHS[@]}"; do
   fi
 
   if [[ -d "$src" ]]; then
-    changed="$(rsync -an --delete "$src/" "$dst/" 2>/dev/null | grep -v '/$' | wc -l | tr -d ' ')"
+    changed="$(rsync -an --delete "$src/" "$dst/" 2>/dev/null | { grep -v '/$' || true; } | wc -l | tr -d ' ')"
     if [[ "$changed" -gt 0 ]]; then
       printf "  ${C_YELLOW}%-8s${C_RESET} %s  %s\n" "CHANGED" "$fpath" "${C_DIM}($changed file(s))${C_RESET}"
       FRAMEWORK_CHANGED=$((FRAMEWORK_CHANGED + changed))
