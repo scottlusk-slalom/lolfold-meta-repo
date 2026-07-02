@@ -527,7 +527,7 @@ echo ""
 # Prompt to commit
 read -rp "$(echo -e "${C_CYAN}?${C_RESET} Commit these changes now? [y/N] ")" COMMIT_NOW
 
-if [[ "${COMMIT_NOW,,}" == "y" ]]; then
+if [[ "$(echo "$COMMIT_NOW" | tr '[:upper:]' '[:lower:]')" == "y" ]]; then
   git -C "$REPO_ROOT" add -A
   git -C "$REPO_ROOT" commit -m "$COMMIT_MSG"
   echo ""
