@@ -31,7 +31,7 @@ Step C: Harness Init            → CLAUDE.md + AGENTS.md setup
 Step D: CI check                → Advisory
 ```
 
-Result: READY (all A–C pass) or NOT READY (with failure details).
+Result: READY (all A–D pass) or NOT READY (with failure details).
 
 ## Troubleshooting
 
@@ -46,8 +46,8 @@ Result: READY (all A–C pass) or NOT READY (with failure details).
 - Add `/health` or `/healthz` endpoint returning 200
 
 ### Observability SDK not detected
-- Required by platform rules (engagement-specific)
-- Check `org/` for exact requirements
+- Required for `standard` and `full` gate levels
+- Check platform requirements for exact expectations
 
 ### CI not green
 - Advisory only — does not block `/init-repo`

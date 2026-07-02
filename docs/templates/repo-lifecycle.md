@@ -38,6 +38,7 @@ not-started → planning → in-flight → complete
 | `/onboard-legacy-repo` | Onboard existing legacy system |
 | `validate-repos-yaml.sh` | Lint registry file |
 | `validate-repo-lifecycle.sh` | Check lifecycle integrity |
+| `validate-repo-lifecycle.sh` | Lifecycle integrity check |
 
 ## Workflow Steps
 
@@ -45,5 +46,5 @@ not-started → planning → in-flight → complete
 2. **Propose** — `/register-repo` with purpose and team
 3. **Review** — Architecture review, template selection
 4. **Provision** — `/scaffold-repo` from template
-5. **Validate** — `/init-repo` → platform checks → CI green
+5. **Validate** — `/init-repo` → CI green
 6. **Decommission** — `/promote-repo archived` after all work complete

@@ -6,9 +6,9 @@ System of record for AI assistant guidance in this repository.
 
 A spec-driven multi-repo orchestration harness. This is a reusable template for managing complex, multi-repository initiatives through a unified specification and orchestration layer.
 
-**Project: Lolfold**  
-**Description:** AI-powered live poker hand tracking and player scouting  
-**Stack:** React 19 / Node.js+Express / PostgreSQL / Terraform / AWS (Bedrock, ECS, RDS, S3+CloudFront)  
+**Project: <Project name>**  
+**Description:** <one-line description>  
+**Stack:** <primary technology stack>  
 **Repos:** See `project/project-repositories.yaml`
 
 ## Directory Structure

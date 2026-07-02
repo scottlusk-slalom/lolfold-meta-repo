@@ -29,7 +29,7 @@ Single lifecycle reference for modernizing any legacy application.
 - Legacy databases accessed read-only during migration
 - Connection pooling strategy
 
-### Platform Template Readiness
+### Template Readiness
 - [ ] Platform templates available for target stack
 
 ### Network/Security Constraints

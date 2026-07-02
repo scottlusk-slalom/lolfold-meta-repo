@@ -15,9 +15,10 @@ Task-first guides for humans working with this meta-repo.
 
 | Guide | Topic |
 |-------|-------|
-| [Coming soon] | Populate per engagement |
+| (none yet — add per engagement) | |
 
 ## Notes
 - How-to guides are for **humans** — step-by-step recipes for common tasks
 - `playbooks/` is for **agents** — machine instructions injected into the execution loop
 - Never conflate the two
+

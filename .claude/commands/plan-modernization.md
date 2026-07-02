@@ -16,7 +16,7 @@ Invoke the modernization-planner agent to produce an executive readout and phase
    - `project/executive-readout.md`
    - `project/engineering-plan.md`
 
-3. **Invoke** `.claude/agents/modernization-planner.md` with the three inputs
+3. **Invoke** `.claude/agents/modernization-planner.md` with the four inputs
 
 4. **Validate** both outputs are non-empty after agent run
 

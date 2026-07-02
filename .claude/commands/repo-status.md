@@ -26,7 +26,7 @@ If a path is given instead, triggers readiness check mode.
 2. Check `CLAUDE.md` exists
 3. Check `AGENTS.md` exists
 4. Report pass/fail per check
-5. Exit 0 if all pass, 1 otherwise
+6. Exit 0 if all pass, 1 otherwise
 
 ## Reads
 - `project/project-repositories.yaml`

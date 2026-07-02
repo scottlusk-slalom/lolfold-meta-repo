@@ -26,7 +26,7 @@ Take a cloned repo from zero to loop-ready.
 - Advisory only — continue regardless
 
 ## Result
-- READY: all steps A–C pass
+- READY: all steps A–D pass
 - NOT READY: report which steps failed
 
 ## Reads
