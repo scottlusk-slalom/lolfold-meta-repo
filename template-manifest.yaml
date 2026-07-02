@@ -40,4 +40,3 @@ project:
   - README.md
   - template-manifest.yaml
   - .template-overrides/
-  - .template-cache/
