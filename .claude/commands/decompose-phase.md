@@ -11,9 +11,9 @@ Break an engineering plan phase into right-sized, independently shippable slices
 2. **Halt** if output exists at `specs/planning/<PHASE_SLUG>-slices/` without `--refresh`
 3. **Validate required inputs**:
    - `project/engineering-plan.md` (required)
-   - `architecture/legacy/service_inventory.md` (required)
-   - `architecture/legacy/integration_map.md` (required)
-   - `architecture/legacy/data_model.md` (conditional — if data layer phase)
+   - `architecture/legacy/service_inventory.md` (optional — used if present)
+   - `architecture/legacy/integration_map.md` (optional — used if present)
+   - `architecture/legacy/data_model.md` (optional — used if present and data layer phase)
 4. **Invoke** `.claude/agents/slice-decomposer.md`
 5. **Validate output** against sizing limits:
    - ≤15 files modified per slice
@@ -34,9 +34,9 @@ Break an engineering plan phase into right-sized, independently shippable slices
 
 ## Reads
 - `project/engineering-plan.md`
-- `architecture/legacy/service_inventory.md`
-- `architecture/legacy/integration_map.md`
-- `architecture/legacy/data_model.md` (conditional)
+- `architecture/legacy/service_inventory.md` (if exists)
+- `architecture/legacy/integration_map.md` (if exists)
+- `architecture/legacy/data_model.md` (if exists)
 
 ## Writes
 - `specs/planning/<PHASE_SLUG>-slices/<PHASE_SLUG>-slices.spec.md`

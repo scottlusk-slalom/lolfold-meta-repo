@@ -74,7 +74,6 @@ Each spec contains:
 ## Orchestration Commands
 
 ### Planning & Specs
-- `/discover-specs` — Analyze project context and suggest a prioritized spec backlog
 - `/generate-spec` — Create a new spec from description
 - `/approve` — Approve a spec for execution
 - `/decompose-phase` — Break a spec into phases
