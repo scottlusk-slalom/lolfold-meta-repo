@@ -1,0 +1,43 @@
+# template-manifest.yaml
+# Tracks template versioning and controls what gets synced to derived repos.
+# This file lives in BOTH the template source and each derived copy.
+
+template_version: "1.0.0"   # bump when releasing changes to the template
+manifest_version: "1"       # schema version of this manifest format
+
+# Upstream template — only present in derived repos (not in the source template)
+# Set repo to a local clone path or git URL of ae-harness-platform-poc
+upstream:
+  repo: ""        # e.g. /path/to/ae-harness-platform-poc  OR  git@github.com:org/ae-harness-platform-poc.git
+  pinned_at: ""   # set automatically by scripts/update-template.sh
+
+# Framework paths — files/dirs from the template that are synced wholesale
+# (overwritten on each sync unless listed in .template-overrides/)
+framework:
+  - .claude/
+  - scripts/
+  - playbooks/
+  - docs/
+  - architecture/README.md
+  - architecture/data-modeling-conventions.md
+  - META-REPO-GUIDE.md
+  - CLAUDE.md
+  - .gitignore
+  - .env.acli.example
+
+# Merge paths — files that are merged (not overwritten) during sync
+# because derived repos customize them
+merge:
+  - AGENTS.md
+
+# Project paths — files/dirs owned by the derived project, never overwritten
+project:
+  - project/
+  - specs/
+  - repos/
+  - org/
+  - planning/
+  - README.md
+  - template-manifest.yaml
+  - .template-overrides/
+  - .template-cache/
