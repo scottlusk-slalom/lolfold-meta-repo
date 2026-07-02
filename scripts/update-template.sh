@@ -54,7 +54,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MANIFEST="$REPO_ROOT/template-manifest.yaml"
 OVERRIDES_DIR="$REPO_ROOT/.template-overrides"
 CACHE_DIR="$REPO_ROOT/.template-cache"
-TEMP_CLONE=""
 
 CHECK_ONLY=false
 DRY_RUN=false
@@ -68,16 +67,6 @@ OVERRIDE_SKIPPED=0
 MERGE_CLEAN=0
 MERGE_CONFLICT=0
 CONFLICT_FILES=()
-
-# ──────────────────────────────────────────────
-# Cleanup
-# ──────────────────────────────────────────────
-cleanup() {
-  if [[ -n "$TEMP_CLONE" && -d "$TEMP_CLONE" ]]; then
-    rm -rf "$TEMP_CLONE"
-  fi
-}
-trap cleanup EXIT
 
 # ──────────────────────────────────────────────
 # Parse arguments
@@ -99,8 +88,6 @@ done
 # ──────────────────────────────────────────────
 # YAML helpers (no yq dependency)
 # ──────────────────────────────────────────────
-
-# Read a scalar value: yaml_scalar "key:" file
 yaml_scalar() {
   local key="$1" file="$2"
   grep "^${key}" "$file" | head -1 \
@@ -109,7 +96,6 @@ yaml_scalar() {
     | tr -d '"'"'"
 }
 
-# Read a nested scalar: yaml_nested "parent:" "  key:" file
 yaml_nested() {
   local parent="$1" child="$2" file="$3"
   awk "/^${parent}/{f=1} f && /^${child}/{print; exit}" "$file" \
@@ -118,8 +104,6 @@ yaml_nested() {
     | tr -d '"'"'"
 }
 
-# Parse a top-level list section into an array
-# Usage: read_yaml_list ARRAY_NAME "section" file
 yaml_list() {
   local section="$1" file="$2"
   awk "
@@ -153,10 +137,6 @@ if ! command -v rsync &>/dev/null; then
   err "rsync is not installed. Install with: brew install rsync"; prereq_ok=false
 fi
 
-if ! command -v python3 &>/dev/null; then
-  err "python3 is not installed (required for YAML parsing)."; prereq_ok=false
-fi
-
 if [[ ! -f "$MANIFEST" ]]; then
   err "template-manifest.yaml not found at $MANIFEST"
   err "Is this a harness-derived repo? Expected file: $MANIFEST"
@@ -166,6 +146,14 @@ fi
 [[ "$prereq_ok" == false ]] && { echo ""; err "Prerequisites not met. Aborting."; exit 1; }
 
 ok "Prerequisites OK"
+
+if [[ "$CHECK_ONLY" == false && "$DRY_RUN" == false ]]; then
+  if [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]]; then
+    err "Working tree has uncommitted changes."
+    echo "  Commit or stash before syncing to avoid losing work."
+    exit 1
+  fi
+fi
 
 # ──────────────────────────────────────────────
 # 2. Read manifest
@@ -198,20 +186,34 @@ info "Framework paths:      ${#FRAMEWORK_PATHS[@]}"
 info "Merge paths:          ${#MERGE_PATHS[@]}"
 
 # ──────────────────────────────────────────────
-# 3. Resolve upstream
+# 3. Resolve upstream into .template-cache/
 # ──────────────────────────────────────────────
 section "Resolving upstream..."
 
 if [[ "$UPSTREAM_REPO" == http* || "$UPSTREAM_REPO" == git@* ]]; then
-  TEMP_CLONE="/tmp/harness-template-sync-$$"
-  info "Cloning from $UPSTREAM_REPO..."
-  if ! git clone --depth 1 --quiet "$UPSTREAM_REPO" "$TEMP_CLONE" 2>&1; then
-    err "Failed to clone upstream: $UPSTREAM_REPO"
-    err "Check the URL and your network access, then retry."
-    exit 1
+  # Remote URL — use .template-cache/ as a persistent shallow clone
+  if [[ -d "$CACHE_DIR/.git" ]]; then
+    # Cache clone exists — fetch latest
+    info "Fetching latest from upstream..."
+    git -C "$CACHE_DIR" fetch origin --depth 1 --quiet 2>&1 || {
+      err "Failed to fetch upstream. Check network access."
+      exit 1
+    }
+    git -C "$CACHE_DIR" reset --hard origin/HEAD --quiet 2>/dev/null \
+      || git -C "$CACHE_DIR" reset --hard FETCH_HEAD --quiet
+  else
+    # First sync — create the shallow clone
+    info "Creating template cache (shallow clone)..."
+    rm -rf "$CACHE_DIR"
+    if ! git clone --depth 1 --quiet "$UPSTREAM_REPO" "$CACHE_DIR" 2>&1; then
+      err "Failed to clone upstream: $UPSTREAM_REPO"
+      err "Check the URL and your network access, then retry."
+      exit 1
+    fi
   fi
-  UPSTREAM_DIR="$TEMP_CLONE"
+  UPSTREAM_DIR="$CACHE_DIR"
 else
+  # Local path — use directly (no cache needed for local)
   UPSTREAM_DIR="$UPSTREAM_REPO"
   if [[ ! -d "$UPSTREAM_DIR" ]]; then
     err "Upstream path not found: $UPSTREAM_DIR"
@@ -258,7 +260,7 @@ if [[ -d "$OVERRIDES_DIR" ]]; then
   while IFS= read -r -d '' override_file; do
     rel="${override_file#$OVERRIDES_DIR/}"
     OVERRIDE_PATHS+=("$rel")
-  done < <(find "$OVERRIDES_DIR" -type f -print0)
+  done < <(find "$OVERRIDES_DIR" -type f -not -name '.DS_Store' -not -name 'README.md' -print0)
 
   if [[ ${#OVERRIDE_PATHS[@]} -gt 0 ]]; then
     section "Active overrides (.template-overrides/):"
@@ -270,11 +272,7 @@ fi
 
 is_overridden() {
   local target="$1"
-  if [[ ${#OVERRIDE_PATHS[@]} -eq 0 ]]; then
-    return 1
-  fi
   for op in "${OVERRIDE_PATHS[@]}"; do
-    # Match exact file or prefix (directory override)
     if [[ "$target" == "$op" || "$target" == "$op"/* ]]; then
       return 0
     fi
@@ -311,7 +309,7 @@ for fpath in "${FRAMEWORK_PATHS[@]}"; do
   fi
 
   if [[ -d "$src" ]]; then
-    changed="$(rsync -an --delete "$src/" "$dst/" 2>/dev/null | { grep -v '/$' || true; } | wc -l | tr -d ' ')"
+    changed="$(rsync -an --delete "$src/" "$dst/" 2>/dev/null | grep -v '/$' | wc -l | tr -d ' ')"
     if [[ "$changed" -gt 0 ]]; then
       printf "  ${C_YELLOW}%-8s${C_RESET} %s  %s\n" "CHANGED" "$fpath" "${C_DIM}($changed file(s))${C_RESET}"
       FRAMEWORK_CHANGED=$((FRAMEWORK_CHANGED + changed))
@@ -417,18 +415,28 @@ if [[ ${#MERGE_PATHS[@]} -gt 0 ]]; then
       continue
     fi
 
-    # Three-way merge base: prefer .template-cache/<pinned_version>/<file> (exact
-    # upstream state at last sync), fall back to git HEAD, then local copy.
+    # Three-way merge base: use the cache clone at the pinned version.
+    # If upstream is a git URL, the cache IS the clone — check if we can
+    # retrieve the file at the pinned commit. Otherwise fall back to git HEAD.
     base_tmp="$(mktemp /tmp/merge-base-XXXXXX)"
-    CACHE_BASE="$CACHE_DIR/${LOCAL_VERSION:-unknown}/$mpath"
-    if [[ -f "$CACHE_BASE" ]]; then
-      cp "$CACHE_BASE" "$base_tmp"
-      dim "    base: .template-cache/${LOCAL_VERSION:-unknown}/$mpath"
-    elif git -C "$REPO_ROOT" show "HEAD:$mpath" > "$base_tmp" 2>/dev/null; then
-      dim "    base: git HEAD:$mpath  (no cache entry for v${LOCAL_VERSION:-unknown})"
-    else
-      cp "$dst" "$base_tmp"
-      dim "    base: local copy (no cache, no HEAD)"
+    BASE_FOUND=false
+
+    if [[ -d "$CACHE_DIR/.git" && -n "$LOCAL_VERSION" ]]; then
+      # Try to get the file at the pinned version tag/ref
+      if git -C "$CACHE_DIR" show "v${LOCAL_VERSION}:${mpath}" > "$base_tmp" 2>/dev/null \
+         || git -C "$CACHE_DIR" show "${LOCAL_VERSION}:${mpath}" > "$base_tmp" 2>/dev/null; then
+        BASE_FOUND=true
+        dim "    base: cache @ v${LOCAL_VERSION}:${mpath}"
+      fi
+    fi
+
+    if [[ "$BASE_FOUND" == false ]]; then
+      if git -C "$REPO_ROOT" show "HEAD:$mpath" > "$base_tmp" 2>/dev/null; then
+        dim "    base: git HEAD:$mpath (no cache ref for v${LOCAL_VERSION:-unknown})"
+      else
+        cp "$dst" "$base_tmp"
+        dim "    base: local copy (no cache, no HEAD)"
+      fi
     fi
 
     if git merge-file -q "$dst" "$base_tmp" "$src" 2>/dev/null; then
@@ -456,28 +464,15 @@ if [[ "$DRY_RUN" == false && -n "$UPSTREAM_VERSION" ]]; then
     fi
   fi
   ok "Manifest updated: pinned_at → v$UPSTREAM_VERSION"
+
+  # Tag the cache clone at this version for future merge-base lookups
+  if [[ -d "$CACHE_DIR/.git" ]]; then
+    git -C "$CACHE_DIR" tag -f "v${UPSTREAM_VERSION}" HEAD --quiet 2>/dev/null || true
+  fi
 fi
 
 # ──────────────────────────────────────────────
-# 10. Populate template cache
-# ──────────────────────────────────────────────
-# Store upstream merge[] files at the new version so future syncs have
-# the correct three-way base (upstream-at-pin | local | upstream-now).
-if [[ "$DRY_RUN" == false && -n "$UPSTREAM_VERSION" && ${#MERGE_PATHS[@]} -gt 0 ]]; then
-  section "Updating .template-cache/..."
-  for mpath in "${MERGE_PATHS[@]}"; do
-    src="$UPSTREAM_DIR/$mpath"
-    cache_dst="$CACHE_DIR/$UPSTREAM_VERSION/$mpath"
-    if [[ -f "$src" ]]; then
-      mkdir -p "$(dirname "$cache_dst")"
-      cp "$src" "$cache_dst"
-      ok "  cached  .template-cache/$UPSTREAM_VERSION/$mpath"
-    fi
-  done
-fi
-
-# ──────────────────────────────────────────────
-# 11. Final report
+# 10. Final report
 # ──────────────────────────────────────────────
 echo ""
 echo -e "${C_BOLD}╭─────────────────────────────────────────────╮${C_RESET}"
@@ -497,7 +492,7 @@ fi
 echo ""
 
 # ──────────────────────────────────────────────
-# 12. Commit prompt
+# 11. Commit prompt
 # ──────────────────────────────────────────────
 COMMIT_MSG="chore: sync harness template v${LOCAL_VERSION:-?} → v${UPSTREAM_VERSION:-?}"
 

@@ -34,4 +34,4 @@ Link to the spec or PR where this was first validated.
 - `org/` — platform-wide requirements (apply to ALL repos)
 - `architecture/patterns/` — project-specific patterns (apply to THIS project)
 
-Platform-wide patterns belong in the org tier. Project patterns go here.
+Platform-wide requirements belong in the org tier. Project patterns go here.

@@ -4,7 +4,7 @@
 
 - Spec-driven development workflow with lifecycle gates
 - Three-tier memory system (org → project → repo → scratch)
-- Multi-repo orchestration via worktrees and multi-repo sub-loops
+- Multi-repo orchestration via worktrees and execution sub-loops
 - AI tool integration (slash commands, subagents, playbooks)
 
 ## Directory Structure
@@ -24,7 +24,7 @@ See `AGENTS.md` for the full directory tree and tier definitions. Key directorie
 | `specname.spec.md` | Functional specification |
 | `specname.plan.md` | Technical implementation plan |
 | `repo-lifecycle.md` | Repository lifecycle process |
-| `_loop-config.yaml.template` | Multi-repo loop configuration |
+| `_loop-config.yaml.template` | Loop configuration |
 
 ## Key Documentation
 
