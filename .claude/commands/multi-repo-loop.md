@@ -2,12 +2,31 @@
 
 Core dispatch loop — execute a master spec across multiple target repos via per-repo execution sub-loops.
 
-**Cloud Mode:** If `$SUBAGENT_RUNTIME_ARN` is set, use `/orchestrate` instead. This command is for local execution only.
+**Cloud Mode:** If `$SUBAGENT_RUNTIME_ARN` is set AND `--report-only` is NOT passed, you are a top-level agent in the cloud — use `/orchestrate` instead. If `--report-only` IS passed, you were dispatched by the orchestrator as a sub-agent: proceed with this command (do NOT defer to `/orchestrate` — that would recurse). Without cloud env vars, this is the local orchestrator.
 
 ## Usage
-/multi-repo-loop <SPEC_KEY> [--gates <minimal|standard|full>] [--repos <r1,r2>] [--dry-run] [--strict]
+/multi-repo-loop <SPEC_KEY> [--gates <minimal|standard|full>] [--repos <r1,r2>] [--dry-run] [--strict] [--report-only]
 
 Default `--gates`: `minimal`
+
+## Report-Only Mode (`--report-only`)
+
+Used when a cloud sub-agent runs this loop for a single repo under `/orchestrate`. The sub-agent has a read-write clone of the **target repo** but only a read-only view of the **metarepo** (it runs on its own microVM). In this mode:
+
+- Do the code work in the target repo worktree as normal: setup-worktree → stage-context → check-deps → `/plan-impl` → `/execute-impl` → check-mock-violations → `/review-impl` → `/submit-pr`.
+- **SKIP all metarepo-tracked writes:** do NOT call `/update-gate`, do NOT run `persist-plan.sh`, do NOT write `status.md`. The orchestrator owns metarepo state and writes it on its own clone after parsing your report.
+- Emit a structured completion report (see below) instead. `--report-only` requires exactly one repo via `--repos` — if zero or more than one repo is in scope, HALT with `report-only requires exactly one repo` (one LOOP-REPORT maps to one PR; multiple repos would orphan all but the last report).
+
+### Completion Report (report-only)
+```
+LOOP-REPORT repo=<repo> spec=<key>
+result: complete | halted
+pr_url: <url or ->
+review_verdict: PASS | PASS_WITH_NOTES | FAIL | -
+gates_passed: <build,test,typecheck,...>
+halt_reason: <text if halted, else ->
+```
+The orchestrator reads this from the sub-agent's status-issue comment and performs the `/update-gate <key> executed` → `/update-gate <key> submitted --evidence <pr_url>` transitions itself.
 
 ## Repo Selection
 - Select repos from `when_to_use` and `selection_guidelines` in `project/project-repositories.yaml`
@@ -26,9 +45,12 @@ For each selected repo:
 6. `check-mock-violations.sh` — no new test mocks of constrained services (gate)
 7. `/review-impl` — adversarial review (FAIL → retry execute, PASS → continue)
 8. `/submit-pr` — push branch + open PR (retries: 1)
-9. `persist-plan.sh` — copy plan from worktree to tracked `plans/<repo>.plan.md`
-10. `/update-gate <key> executed`
-11. `/update-gate <key> submitted --evidence <pr-url>`
+
+Steps 9-11 write **metarepo-tracked state** and run ONLY in local mode. In `--report-only` mode STOP after step 8 and emit the `LOOP-REPORT` instead (the orchestrator performs these on its own clone):
+
+9. `persist-plan.sh` — copy plan from worktree to tracked `plans/<repo>.plan.md` *(local only)*
+10. `/update-gate <key> executed` *(local only)*
+11. `/update-gate <key> submitted --evidence <pr-url>` *(local only)*
 
 ## Gate Levels
 - `minimal`: Stop only on test failures (3 retries). Skip dependency/SAST scans.
@@ -58,6 +80,7 @@ For each selected repo:
 - `/update-gate <key> executed` — after successful execution
 - `/update-gate <key> submitted --evidence <pr-url>` — after PR created
 - Add `--force` if gate entry is missing or behind `planned`
+- **`--report-only` mode skips these entirely** — the orchestrator performs them on the metarepo clone after reading the loop report.
 
 ## Tracking
 - Commit: `chore(<key>): loop results — {summary}`
@@ -76,6 +99,9 @@ For each selected repo:
 - `playbooks/<name>.md`
 
 ## Writes
+Target-repo worktree (always, both modes): source, tests, commits, the PR.
+
+Metarepo-tracked (local mode ONLY — skipped under `--report-only`, orchestrator writes these instead):
 - `specs/<type>/<key>/sub-specs/<repo-name>.spec.md`
 - `specs/<type>/<key>/status.md`
 - `specs/<type>/<key>/plans/<repo-name>.plan.md`

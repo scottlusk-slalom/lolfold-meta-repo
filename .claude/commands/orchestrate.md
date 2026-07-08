@@ -1,167 +1,153 @@
 # /orchestrate
 
-Orchestrate a spec through its full lifecycle. You are the orchestrator — you manage state, dispatch sub-agents, and create gates. You never execute spec work yourself.
+Cloud control plane for running a spec across its lifecycle via ephemeral sub-agents on AWS AgentCore. You are the orchestrator: you manage lifecycle state, apply human-pause gates, dispatch sub-agents, and go idle. **You never execute spec work and you never reimplement the per-repo loop** — each sub-agent runs `/multi-repo-loop` for its repo, which owns planning, TDD execution, adversarial review, and PR submission. The orchestrator records the lifecycle gate transitions itself (the cloud sub-agent cannot write metarepo state — see State-write boundary below).
+
+**Local execution:** If `$SUBAGENT_RUNTIME_ARN` is unset, do NOT use this command. Run `/multi-repo-loop <key>` directly — it is the local orchestrator. This command exists only for the cloud (AgentCore) model, where work is dispatched to ephemeral microVMs with human gates between repos.
 
 ## Arguments
 
-Spec path: `$ARGUMENTS` (e.g., `feature/oauth-integration` or `feature/platform-migration/phase-1`)
+Spec key: `$ARGUMENTS` — the spec's `<key>` (e.g., `oauth-integration`). The spec lives at `specs/<type>/<key>/`.
+
+## What this command owns vs. delegates
+
+| Concern | Owner |
+|---|---|
+| Cross-repo sequencing, human-pause gates, wake handling, cloud dispatch, idle | **This command (orchestrator)** |
+| Per-repo planning, TDD execution, adversarial review, PR creation | `/multi-repo-loop` (run by each sub-agent) |
+| Lifecycle gate state in `project/gate-status.yaml` | `/update-gate` (only writer) |
+| Spec → `planned` approval | `/approve` |
+| Archival | `/archive-spec` |
+
+The orchestrator NEVER inlines a per-repo work prompt. The entire sub-agent instruction is: read `AGENTS.md`, then run `/multi-repo-loop <key> --repos <repo> --gates <level> --report-only`.
+
+**State-write boundary (critical).** A cloud sub-agent runs on its own microVM with a read-write clone of the **target repo** but only a read-only view of the **metarepo**. It therefore CANNOT write metarepo-tracked state (`gate-status.yaml`, `status.md`, `plans/`). That is why sub-agents run the loop in `--report-only` mode: they do the code work and open the target-repo PR, then report status back in a status-issue comment. The **orchestrator is the single writer** of all metarepo lifecycle state — it performs every `/update-gate` transition itself, on its own clone, after reading the sub-agent's report. This eliminates the two-writers-one-file race.
 
 ## Critical Rules
 
-1. **Never self-approve pause-gate PRs.** Verify a human comment exists before acting: `gh pr view <N> --json comments --jq '[.comments[] | select((.author.login // "") | endswith("[bot]") | not)] | length'`. If 0, the gate is NOT satisfied — go idle.
-2. **Never execute spec work yourself.** No implementation, no code changes in target repos. Dispatch sub-agents for all spec work.
-3. **Never poll or wait.** Create the gate PR and go idle. In local mode, inform the user and stop. In cloud mode, end session.
-4. **Check for duplicate dispatches before dispatching.** Search for existing open PRs, branches, and status issues from prior attempts. Close orphans before re-dispatching.
-5. **Zero commits to main between dispatch and merge of sub-agent PR.** All gate mutations happen on the sub-agent's branch or orchestrator review branch.
-6. **Dispatch via the correct mechanism.** If `$SUBAGENT_RUNTIME_ARN` is set, use `python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py`. If unset, use the Agent tool (in-process).
-7. **No duplicate status comments.** Before posting to a status issue, check existing comments: `gh issue view <N> --repo <repo> --json comments --jq '[.comments[].body]'`. If a comment with the same status keyword (e.g., "Sub-agent complete", "dispatched") already exists for the same repo, do NOT post another.
-8. **Ensure labels exist before applying them.** Before swapping labels on a PR, verify the label exists: `gh label list --repo <repo> --search <label>`. If missing, create it: `gh label create <label> --repo <repo> --color <hex> --description <desc>`.
-9. **Never emit the wake marker.** The string `<!-- ORCHESTRATOR-WAKE ... -->` is reserved for sub-agents to signal completion. If YOU (the orchestrator) ever write it in a comment, you will re-wake yourself in an infinite loop. Only sub-agents emit it.
+1. **Never self-approve pause-gate decisions.** Verify a human comment exists before acting: `gh issue view <N> --repo <metarepo> --json comments --jq '[.comments[] | select((.author.login // "") | endswith("[bot]") | not)] | length'`. If 0, the gate is NOT satisfied — go idle.
+2. **Never execute spec work yourself.** No implementation, no code in target repos, no per-repo planning. All spec work happens inside `/multi-repo-loop` run by a sub-agent.
+3. **Never poll or wait.** Apply the gate, go idle, end the session. A webhook wakes you.
+4. **Check for duplicate dispatches before dispatching.** Search for existing open PRs, branches, and status comments from prior attempts. Close orphans before re-dispatching.
+5. **Zero commits to the metarepo default branch between dispatch and PR merge** beyond gate-state updates via `/update-gate`. Sub-agents mutate target repos on their own branches.
+6. **Dispatch only via the cloud mechanism.** `$SUBAGENT_RUNTIME_ARN` MUST be set (this is a cloud-only command). Dispatch with `python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py`. If the var is unset, halt and tell the user to run `/multi-repo-loop` locally.
+7. **No duplicate status comments.** Before posting to the status issue, check existing comments: `gh issue view <N> --repo <metarepo> --json comments --jq '[.comments[].body]'`. If a comment with the same status keyword already exists for the same repo, do NOT post another.
+8. **Ensure labels exist on the repo you're labelling.** PR labels (`orchestrator-pause`, `pr-review`, `sub-agent-complete`) live on the **target repo** where the PR is; status labels (`spec-status`) live on the **metarepo**. Before applying: `gh label list --repo <that-repo> --search <label>`; if missing, `gh label create <label> --repo <that-repo> --color <hex> --description <desc>`. A label existing on the metarepo does NOT mean it exists on the target repo.
+9. **Never emit the wake marker.** The string `<!-- ORCHESTRATOR-WAKE ... -->` is reserved for sub-agents signalling completion. If YOU write it, you re-wake yourself in an infinite loop. Only sub-agents emit it.
 
-## Wake Model (cloud mode)
+## Wake Model
 
-Coordination is centralized on the spec's **metarepo status issue** — target repos have no webhooks. You are woken by a GitHub webhook (`issues` or `issue_comment` on the metarepo) in these cases:
-- **Kickoff:** a human opens an issue (or comments) with `/orchestrate <spec>`. This launches the spec from the start.
-- **Sub-agent handoff:** the sub-agent posts a completion comment ending with `<!-- ORCHESTRATOR-WAKE spec=... -->`. On this wake, verify the sub-agent's PR(s) and advance the lifecycle.
-- **Human decision:** a human comments `Decision: merge|hold|rollback` on the status issue. On this wake, parse the decision and act.
+Coordination is centralized on the spec's **metarepo status issue** — target repos have no webhooks. A GitHub webhook (`issues` / `issue_comment` on the metarepo) wakes you in three cases:
+- **Kickoff:** a human opens an issue (or comments) with `/orchestrate <key>`. Launches the spec.
+- **Sub-agent handoff:** a sub-agent posts a completion comment ending with `<!-- ORCHESTRATOR-WAKE spec=... -->`. On this wake, verify the sub-agent's PR and advance.
+- **Human decision:** a human comments `Decision: merge|hold|rollback` on the status issue.
 
-**Kickoff issue = status issue (reuse, never orphan).** When a kickoff comes from a GitHub issue, that issue BECOMES the spec's status issue — do not open a second one:
-1. Identify the kickoff issue number (the prompt/wake references it).
-2. Adopt it: add the `spec-status` label and retitle it to `Status: <spec>` (`gh issue edit <n> --add-label spec-status --title "Status: <spec>"`). Post the initial status as a comment.
-3. Use this same issue for all subsequent status updates and the human-decision gate.
-4. Only if NO kickoff issue exists (e.g. CLI kickoff) do you create a fresh status issue.
-Never leave a `/orchestrate` kickoff issue open and separate from the status issue — reuse it, or if you had to create a separate status issue, close the kickoff issue with a pointer to it.
+**Kickoff issue = status issue (reuse, never orphan).** When kickoff comes from an issue, that issue BECOMES the status issue:
+1. Identify the kickoff issue number (referenced by the prompt/wake).
+2. **Guard against duplicates first:** `gh issue list --label spec-status --state open --search "Status: <key>"`. If an adopted status issue already exists for this key and it is NOT the kickoff issue, close the kickoff with a pointer to it and use the existing one. Do not adopt a second.
+3. Adopt it: `gh issue edit <n> --add-label spec-status --title "Status: <key>"`. Post the initial status as a comment.
+4. Use this same issue for all status updates and the decision gate.
+5. Only if NO kickoff issue exists (e.g. some non-issue trigger) do you create a fresh status issue, then close the kickoff with a pointer.
 
-On any wake, reload state from `scratch/orchestrator.md` and the status issue — do not assume warm memory.
+On any wake, reload state from `gate-status.yaml`, the spec files, the status issue, and `scratch/orchestrator.md` — assume no warm memory.
 
 ## Context Loading
 
-On every invocation, read these files in order:
+On every invocation, read in order:
 
 1. `AGENTS.md` — shared rules
-2. `specifics/transport/github-prs.md` — PR communication protocol
-3. Detect runtime: `echo $SUBAGENT_RUNTIME_ARN`
-   - Set → read `specifics/platform/aws-agentcore/agent-runtime-cloud.md`
-   - Unset → read `specifics/platform/aws-agentcore/agent-runtime-local.md`
-4. `project/project-repositories.yaml` — repo registry
-5. The spec directory: `specs/$ARGUMENTS/`
-   - `spec.yaml` — metadata, status, repos, quality gate level
-   - `SPEC.md` — technical specification
-   - `scratch/plan.md` — execution plan (if exists)
-   - `scratch/orchestrator.md` — prior orchestrator state (if exists)
-6. Check for open gate PRs: `gh pr list --label orchestrator-pause --state open --search "$ARGUMENTS"`
+2. `specifics/transport/github-prs.md` — PR/label communication protocol
+3. Confirm cloud runtime: `echo $SUBAGENT_RUNTIME_ARN` (must be set; if unset, halt per Rule 6). Read `specifics/platform/aws-agentcore/agent-runtime-cloud.md`.
+4. `project/project-repositories.yaml` — repo registry (repo selection + build config)
+5. `project/gate-status.yaml` — authoritative lifecycle state
+6. The spec directory `specs/<type>/<key>/`:
+   - `<key>.spec.md` — frontmatter (`title`, `type`, `status`, `quality_gate`), body, and repo scope
+   - `<key>.plan.md` — cross-repo plan (if present)
+   - `status.md` — human-facing status
+   - `scratch/orchestrator.md` — orchestrator-private cloud bookkeeping (session IDs, dispatch record)
+7. Open gate PRs / status comments: `gh pr list --label orchestrator-pause --state open` and the status issue.
 
 ## State Assessment
 
-Read `spec.yaml` field `status`. Act based on current state:
+The authoritative lifecycle state is `current_status` in `project/gate-status.yaml` for `<key>` (fall back to the spec frontmatter `status` if no gate entry yet). Act on it:
 
 | Status | Action |
 |--------|--------|
-| `specified` | Validate spec, handle spec-review gate, advance to `planned` |
-| `planned` | Dispatch execution sub-agent(s), one per repo sequentially |
-| `executed` | Review results, open PR(s) in target repos, advance to `submitted` |
-| `submitted` | Check for human review decision on PR(s), merge or re-work |
+| `specified` | Handle `spec-review` gate; wait for `/approve` (advances to `planned`). |
+| `planned` | Dispatch one sub-agent per repo (each runs `/multi-repo-loop --repos <repo> --report-only`). The sub-agent opens the target-repo PR and reports back; the orchestrator then records `executed` → `submitted` itself. |
+| `submitted` | Apply `pr-review` pause on the open PR(s); await human `Decision:`; merge; archive. |
 | `archived` | Nothing to do. Report complete. |
+
+The gate never rests at `executed` under orchestrator control: on the handoff wake the orchestrator records `executed` then `submitted` back-to-back from the loop report, then pauses at `pr-review`. If `gate-status.yaml` has no entry for `<key>` yet, treat it as no tracked gate (the spec frontmatter `status` is the fallback); `/update-gate` will seed the entry.
 
 ## Quality Gate Levels
 
-Read `quality_gate` from `spec.yaml` (default: `standard`). This determines which gates require human pause:
+Read `quality_gate` from the spec frontmatter (default: `standard`). This single value drives BOTH which human pauses fire AND the technical enforcement level passed to the loop as `--gates`.
 
 | Gate | `minimal` | `standard` | `full` |
 |------|-----------|------------|--------|
-| `spec-review` | skip | skip | PAUSE |
-| `plan-review` | skip | PAUSE | PAUSE |
-| `pr-review` | PAUSE | PAUSE | PAUSE |
-| `spec-complete` | skip | skip | PAUSE |
+| `spec-review` (human) | skip | skip | PAUSE |
+| `plan-review` (human) | skip | PAUSE | PAUSE |
+| `pr-review` (human) | PAUSE | PAUSE | PAUSE |
+| `spec-complete` (human) | skip | skip | PAUSE |
+| loop `--gates` (technical) | `minimal` | `standard` | `full` |
 
-If the gate level says "skip" for a given gate, proceed without creating a pause PR.
+Pass the same `quality_gate` value to each sub-agent's `/multi-repo-loop ... --gates <value>`. If a human gate says "skip", proceed without a pause PR.
 
 ## Lifecycle Procedures
 
 ### specified → planned
 
-1. Validate the spec: confirm `SPEC.md` exists, repos listed in `spec.yaml` exist in `project/project-repositories.yaml`.
-2. Check quality gate level for `spec-review`:
-   - If gate requires pause: create pre-execution gate PR (see Gate Protocol below). Go idle.
-   - If gate skips: proceed to step 3.
-3. If resuming after `spec-review` approval (or gate skipped):
-   - Dispatch a planning sub-agent OR run `/plan-impl` locally if spec is single-repo and simple.
-   - For multi-repo specs, dispatch a planning sub-agent with instruction:
-     > "Read AGENTS.md. Read the spec at specs/$ARGUMENTS/SPEC.md. Produce an execution plan at specs/$ARGUMENTS/scratch/plan.md covering all repos. Include dependency order, per-repo task breakdown, and integration points."
-4. Once plan exists, check quality gate for `plan-review`:
-   - If gate requires pause: create pre-execution gate PR with the plan. Go idle.
-   - If gate skips: update `spec.yaml` status to `planned`, commit, proceed.
+1. Validate: `<key>.spec.md` exists; every repo it targets exists in `project/project-repositories.yaml`.
+2. `spec-review` gate:
+   - PAUSE required (`full`): create a pre-execution gate PR with the spec (see Gate Protocol). Go idle.
+   - skip: proceed.
+3. Advance to `planned` via human approval, not by the orchestrator writing status directly:
+   - The plan artifact is `<key>.plan.md` (produced by `/generate-spec`). The orchestrator does NOT dispatch a separate "planning sub-agent" — cross-repo ordering is derived from `depends_on` frontmatter and `project-repositories.yaml`; per-repo impl-plans are produced inside `/multi-repo-loop`.
+   - `plan-review` gate (`standard`/`full`): create a pre-execution gate PR with `<key>.plan.md`. Go idle. On approval, the human (or the merge) runs `/approve <key>`, which sets the spec to `planned` and calls `/update-gate <key> planned`.
+   - `plan-review` skip (`minimal`): run `/approve <key>` to advance to `planned`, then proceed.
 
-### planned → executed
+### planned → (dispatch)
 
-1. Read `scratch/plan.md` for repo execution order and dependency hints.
-2. Read repos from `spec.yaml` field `repos` (list of repo names).
-3. Determine execution order:
-   - If plan specifies dependency order, follow it (e.g., API before frontend).
-   - If no order specified, use the order listed in `spec.yaml`.
-4. **Pre-dispatch checklist** (per repo):
-   - Duplicate guard: `gh pr list --search "$ARGUMENTS" --state open` and `git ls-remote --heads origin agent/*/$ARGUMENTS/*`
-   - Status issue exists: `gh issue list --label spec-status --state open --search "$ARGUMENTS"`. If missing, adopt the kickoff issue as the status issue (see Wake Model → "Kickoff issue = status issue"); only create a fresh one if there is no kickoff issue.
-5. **Dispatch sequentially.** For each repo in order:
-   - Read the `build` config for this repo from `project/project-repositories.yaml`.
-   - Compose sub-agent prompt:
-     > "You are a sub-agent. Read AGENTS.md for shared rules. Execute the spec at specs/$ARGUMENTS/ for repo {repo-name}. Read the plan at specs/$ARGUMENTS/scratch/plan.md for your tasks.
-     >
-     > **Workspace setup:** Clone {clone_url} into your working directory. Then run: `{build.install}`. Verify baseline: run `{build.build}` and `{build.test}` — if either fails before you change anything, post to the status issue that the repo baseline is broken and halt.
-     >
-     > **Execution:** Implement the spec using TDD. For each change: write a failing test first, implement until it passes, then verify the full suite still passes. Run `{build.typecheck}` if configured.
-     >
-     > **Pre-submit verification (MANDATORY):** Before opening your PR, ALL of these must pass:
-     > 1. `{build.build}` exits 0
-     > 2. `{build.test}` exits 0
-     > 3. `{build.typecheck}` exits 0 (if configured)
-     > If any gate fails after 3 fix attempts, open a DRAFT PR with label `sub-agent-failed` instead.
-     >
-     > **On success:** Open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Include in the PR body which gates passed. Then post ONE completion comment to status issue #{issue_number} in the metarepo — check existing comments first and do not duplicate. This comment MUST end with the exact wake marker on its own line so the orchestrator is woken:
-     > `<!-- ORCHESTRATOR-WAKE spec={spec-type}/{spec-name} -->`
-     > (The orchestrator is woken by this marker. Only the sub-agent emits it — never the orchestrator.)"
-   - **Cloud mode** (`$SUBAGENT_RUNTIME_ARN` set):
+1. Determine repo set and order:
+   - Repos from the spec's declared scope / `project-repositories.yaml` selection guidelines. NEVER infer repos from the spec name.
+   - Order by `depends_on` frontmatter (dependents after upstreams); otherwise the listed order.
+2. **Pre-dispatch checklist** (per repo):
+   - Duplicate guard: `gh pr list --search "<key>" --state open` on the target repo, and `git ls-remote --heads <target> 'feat/<key>'`.
+   - Status issue exists (adopt kickoff issue if needed — see Wake Model).
+   - Resolve `<quality_gate>` from the spec frontmatter (default `standard` if absent) and pass it EXPLICITLY as `--gates` in the prompt. Never omit it — the loop defaults to `minimal`, which would silently downgrade technical enforcement.
+3. **Dispatch sequentially** — exactly one repo per sub-agent (never pass multiple repos to one sub-agent; the orchestrator owns cross-repo sequencing and the human gate between repos). Dependents wait for the upstream PR to merge. For each repo, the sub-agent prompt is thin:
+   > "You are a sub-agent running on AgentCore. Read `AGENTS.md` for shared rules. Then run:
+   > `/multi-repo-loop <key> --repos <repo-name> --gates <quality_gate> --report-only`
+   > This performs planning, TDD execution, adversarial review, and PR submission for this ONE repo in the target-repo worktree. `--report-only` means: do NOT write metarepo state — the orchestrator does that. When done, post ONE completion comment to metarepo status issue #<issue_number> — check existing comments first, do not duplicate — containing the loop's `LOOP-REPORT` block and ending with the exact wake marker on its own line:
+   > `<!-- ORCHESTRATOR-WAKE spec=<type>/<key> -->`
+   > If the loop halts (test or review gate exhausted), the report's `result: halted` and `halt_reason` carry the failure — still end with the wake marker so the orchestrator can handle it."
+   - Dispatch:
      ```
      python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py \
        --prompt "<prompt>" \
        --status-issue <issue_number>
      ```
-     Record session ID to `scratch/orchestrator.md`. Go idle.
-   - **Local mode** (`$SUBAGENT_RUNTIME_ARN` unset):
-     Use the Agent tool with `isolation: "worktree"` to dispatch the sub-agent in-process. Wait for completion before dispatching the next repo.
-6. After all repos complete: update `spec.yaml` status to `executed`, commit and push to main.
+   - Record the session ID to `scratch/orchestrator.md`. Go idle.
 
-### executed → submitted
-
-1. Verify all sub-agent PRs exist (one per repo). Check labels:
-   - If ANY PR has label `sub-agent-failed`: **HALT.** Do not advance. Post failure summary to status issue. Update `scratch/orchestrator.md` with failure details. Go idle.
-   - If all PRs have label `sub-agent-complete`: proceed.
-2. Read PR bodies for companion PR links and verification results.
-3. **Advance state first (before any idle).** Update `spec.yaml` status to `submitted`, commit and push to main. This MUST happen before going idle at the gate — otherwise the pushed status never reflects that the gate was reached, and a later resume misreads the lifecycle position. Also update `scratch/orchestrator.md`.
-4. Check quality gate for `pr-review`:
-   - If gate requires pause:
-     a. Ensure labels exist on target repo (create if missing): `orchestrator-pause`, `pr-review`
-     b. Mutate sub-agent PR(s) — swap `sub-agent-complete` label for `orchestrator-pause` + `pr-review`.
-     c. Post a review-gate comment to the **metarepo status issue** (NOT the target PR) with: links to each sub-agent PR, what passed (gates), and how to respond. The human reviews the diff on the target PR but leaves their decision on the status issue:
-        > "Review the PR(s) linked above. Then comment here with: `Decision: merge` | `Decision: hold` | `Decision: rollback`."
-        Do NOT append the wake marker (Rule 9). Go idle.
-   - If gate skips: the spec is already `submitted` (step 3) — proceed to `submitted → archived`.
+The orchestrator — NOT the sub-agent — records gate transitions. It does so on the handoff wake (next section), after reading the `LOOP-REPORT`. During dispatch itself no gate write occurs.
 
 ### submitted → archived
 
-Reached on a human-decision wake (comment on the status issue containing `Decision:`).
+Reached on a sub-agent handoff wake (loop complete, PR open, gate at `submitted`) followed by a human-decision wake.
 
-1. Read the decision from the status issue: `gh issue view <issue> --repo <metarepo> --comments`. Confirm the commenter is human (login does not end with `[bot]`).
-2. Parse the structured decision:
-   - `Decision: merge` → merge all sub-agent PR(s) on target repos (`gh pr merge --squash --delete-branch`).
-   - `Decision: hold` → go idle, inform user.
-   - `Decision: rollback` → close PRs, reset spec to `executed`, document in scratch.
-3. After all PRs merged:
-   - Check quality gate for `spec-complete`:
-     - If gate requires pause: post a close-out summary to the status issue and go idle.
-     - If gate skips: proceed.
-   - Update `spec.yaml` status to `archived`, commit and push.
-   - Close status issue.
+1. On the **handoff wake**: read the `LOOP-REPORT` from the sub-agent's status-issue comment.
+   - If `result: halted` (or the PR referenced by `pr_url` does not exist): **HALT.** Post a failure summary (include `halt_reason`) to the status issue, record it in `scratch/orchestrator.md`, go idle. Do not advance the gate.
+   - If `result: complete` and `pr_url` resolves to an open PR: **record the gate transitions the sub-agent could not write** — `/update-gate <key> executed` then `/update-gate <key> submitted --evidence <pr_url>`. Then apply the `pr-review` gate.
+2. `pr-review` gate (always PAUSE at every level):
+   - Ensure `orchestrator-pause` + `pr-review` labels exist on the target repo; apply them to the sub-agent PR.
+   - Post a review-gate comment to the **metarepo status issue** (not the target PR) linking each PR and stating how to respond. Do NOT emit the wake marker (Rule 9). Go idle.
+     > "Review the PR(s) linked above, then comment here: `Decision: merge` | `Decision: hold` | `Decision: rollback`."
+3. On the **human-decision wake**: `gh issue view <issue> --repo <metarepo> --comments`; confirm the commenter is human (login not ending `[bot]`). Parse:
+   - `Decision: merge` → `gh pr merge --squash --delete-branch` each PR. Then, if more repos remain in the sequence, dispatch the next repo (back to `planned → dispatch`). If all repos are done:
+     - `spec-complete` gate (`full`): post a close-out summary, go idle.
+     - Run `/archive-spec` (sets frontmatter `archived`, calls `/update-gate <key> archived`, promotes memory). Close the status issue.
+   - `Decision: hold` → go idle, inform the user.
+   - `Decision: rollback` → close the PR(s), and reset via `/update-gate <key> planned --force --reason "rollback: <text>"`. Document in `scratch/orchestrator.md`.
 
 ## Gate Protocol
 
@@ -169,61 +155,50 @@ Reached on a human-decision wake (comment on the status issue containing `Decisi
 
 For `spec-review` and `plan-review` — no sub-agent PR exists yet:
 
-1. Create branch: `orchestrator/{spec-type}/{spec-name}/review`
-2. Commit the artifact being reviewed (spec or plan file).
-3. Open PR with labels: `orchestrator-pause` + gate type (`spec-review` or `plan-review`).
-4. PR body follows the review-gate template:
+1. Branch: `orchestrator/<type>/<key>/review`.
+2. Commit the artifact being reviewed (`<key>.spec.md` or `<key>.plan.md`).
+3. Open a PR labelled `orchestrator-pause` + gate type (`spec-review` | `plan-review`).
+4. PR body (review-gate template):
    ```
    ## Status
    <what was done>
-
    ## Decision Needed
-   <what the human decides — numbered options if applicable>
-
+   <what the human decides>
    ## Context
-   <links, metrics, what happens after response>
-
+   <links, what happens after response>
    ## How to Respond
-   Leave a comment with: Decision: approved | rejected | changes_requested
+   Comment: Decision: approved | rejected | changes_requested
    ```
-5. Go idle.
+5. Go idle. On approval, `/approve <key>` advances the gate.
 
-### Post-Execution Gates (label swap + status-issue comment)
+### Post-Execution Gate (label swap + status-issue comment)
 
-For `pr-review`, quality gates, and `spec-complete`:
-
-1. Swap labels on the sub-agent's PR: remove `sub-agent-complete`, add `orchestrator-pause` + specific gate label.
-2. Post the review-gate comment to the **metarepo status issue** (not the PR). Link the PR(s). Do NOT emit the wake marker (Rule 9).
-3. Go idle.
+For `pr-review` (and the optional `spec-complete` close-out): swap `sub-agent-complete` → `orchestrator-pause` + gate label on the PR, post the review-gate comment to the **status issue** (not the PR), do NOT emit the wake marker, go idle. See `specifics/transport/github-prs.md` for the label taxonomy.
 
 ## Resume Flow
 
-When re-invoked after going idle (via a webhook wake or manual re-run):
+On any re-invocation (webhook wake or manual re-run):
 
-1. Load context (see Context Loading above) — always reload `scratch/orchestrator.md` and the status issue; assume no warm memory.
-2. Determine the wake reason from the prompt / issue state:
-   - **Sub-agent handoff** (completion comment with wake marker) → verify the sub-agent PR(s), then run the `executed → submitted` lifecycle step (apply the `pr-review` gate).
-   - **Human decision** (comment with `Decision:` on the status issue) → confirm the commenter is human (login not ending `[bot]`), then run `submitted → archived`.
-3. Parse structured decision:
-   - `Decision: merge` → merge sub-agent PR(s) (`--delete-branch`), proceed to `archived`.
-   - `Decision: hold` → go idle, inform user.
-   - `Decision: rollback` → reset status one step back, close PRs, document in scratch.
-4. If woken but no actionable signal is found (no marker, no human decision): report what state you're in and go idle.
+1. Reload context (above) — always reload `gate-status.yaml`, the spec files, the status issue, and `scratch/orchestrator.md`. Assume no warm memory.
+1a. **Validate state against reality.** If the gate reads `submitted` but no open PR is found for `<key>` on the target repo(s), the state is ahead of the artifacts (manual edit, or a sub-agent that died before opening its PR). Do NOT proceed as if a PR exists — post a diagnostic to the status issue and HALT.
+1b. **Detect orphaned dispatch.** If `scratch/orchestrator.md` records a dispatched session for the active repo but the status issue has NO completion comment (no `LOOP-REPORT`) for it, the sub-agent died before reporting. Run the duplicate guard (close any orphan branch/PR on the target repo per Rule 4), clear that session ID from scratch, and re-dispatch — do NOT re-dispatch without clearing, or you create duplicate PRs.
+2. Determine wake reason:
+   - **Sub-agent handoff** (completion/failure comment with wake marker) → run `submitted → archived` step 1 (verify PR, apply `pr-review`).
+   - **Human decision** (`Decision:` on status issue, human author) → run `submitted → archived` step 3.
+   - **Kickoff** (`/orchestrate <key>`) → adopt the kickoff issue, run from the current gate state.
+3. If woken with no actionable signal (no marker, no human decision): report the current state and go idle.
 
-## Scratch State
+## Scratch State (orchestrator-private)
 
-Before going idle, write orchestrator state to `specs/$ARGUMENTS/scratch/orchestrator.md`:
-- Current lifecycle position
-- Which repos have been dispatched / completed
-- Session IDs (cloud mode)
-- Pending decisions
-- Errors encountered
-
-On resume, read this file first for warm context recovery.
+The orchestrator directly owns metarepo state that the report-only loop does not write: `gate-status.yaml` (via `/update-gate`), `status.md` (human-facing, updated at each milestone), and `scratch/orchestrator.md` (cloud bookkeeping). Write `scratch/orchestrator.md` immediately after any significant event (dispatch, wake, gate write, error) — not batched at idle, so a crashed session loses nothing. Record:
+- Current lifecycle position and which repo in the sequence is active
+- Session IDs of dispatched sub-agents (cloud bookkeeping)
+- Pending decisions and any errors
 
 ## Error Handling
 
-- **Sub-agent dispatch failure:** Document in scratch, close any orphan PR, reset spec to prior state.
-- **Ambiguous gate comment:** Reply with structured error requesting clarification. Do not proceed.
-- **Missing plan file when status is `planned`:** Reset to `specified` and re-plan.
-- **Repo not found in registry:** Halt and report. Do not guess.
+- **Dispatch failure:** document in `scratch/orchestrator.md`, close any orphan PR, do not advance the gate.
+- **Loop halt reported by sub-agent:** HALT, post summary to status issue, go idle. Do not advance.
+- **Ambiguous gate comment:** reply on the status issue requesting a structured `Decision:`; do not proceed.
+- **Repo not in registry:** halt and report. Do not guess.
+- **`$SUBAGENT_RUNTIME_ARN` unset:** halt; instruct the user to run `/multi-repo-loop <key>` locally instead.
