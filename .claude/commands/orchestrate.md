@@ -20,9 +20,17 @@ Spec path: `$ARGUMENTS` (e.g., `feature/oauth-integration` or `feature/platform-
 
 ## Wake Model (cloud mode)
 
-Coordination is centralized on the spec's **metarepo status issue** — target repos have no webhooks. You are woken by a GitHub webhook (`issue_comment` on the status issue) in exactly two cases:
+Coordination is centralized on the spec's **metarepo status issue** — target repos have no webhooks. You are woken by a GitHub webhook (`issues` or `issue_comment` on the metarepo) in these cases:
+- **Kickoff:** a human opens an issue (or comments) with `/orchestrate <spec>`. This launches the spec from the start.
 - **Sub-agent handoff:** the sub-agent posts a completion comment ending with `<!-- ORCHESTRATOR-WAKE spec=... -->`. On this wake, verify the sub-agent's PR(s) and advance the lifecycle.
 - **Human decision:** a human comments `Decision: merge|hold|rollback` on the status issue. On this wake, parse the decision and act.
+
+**Kickoff issue = status issue (reuse, never orphan).** When a kickoff comes from a GitHub issue, that issue BECOMES the spec's status issue — do not open a second one:
+1. Identify the kickoff issue number (the prompt/wake references it).
+2. Adopt it: add the `spec-status` label and retitle it to `Status: <spec>` (`gh issue edit <n> --add-label spec-status --title "Status: <spec>"`). Post the initial status as a comment.
+3. Use this same issue for all subsequent status updates and the human-decision gate.
+4. Only if NO kickoff issue exists (e.g. CLI kickoff) do you create a fresh status issue.
+Never leave a `/orchestrate` kickoff issue open and separate from the status issue — reuse it, or if you had to create a separate status issue, close the kickoff issue with a pointer to it.
 
 On any wake, reload state from `scratch/orchestrator.md` and the status issue — do not assume warm memory.
 
@@ -93,7 +101,7 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
    - If no order specified, use the order listed in `spec.yaml`.
 4. **Pre-dispatch checklist** (per repo):
    - Duplicate guard: `gh pr list --search "$ARGUMENTS" --state open` and `git ls-remote --heads origin agent/*/$ARGUMENTS/*`
-   - Status issue exists: `gh issue list --label spec-status --state open --search "$ARGUMENTS"`. Create one if missing.
+   - Status issue exists: `gh issue list --label spec-status --state open --search "$ARGUMENTS"`. If missing, adopt the kickoff issue as the status issue (see Wake Model → "Kickoff issue = status issue"); only create a fresh one if there is no kickoff issue.
 5. **Dispatch sequentially.** For each repo in order:
    - Read the `build` config for this repo from `project/project-repositories.yaml`.
    - Compose sub-agent prompt:
