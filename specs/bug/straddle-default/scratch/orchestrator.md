@@ -27,13 +27,21 @@
 ## Dispatches
 | Repo | Session ID | Branch | Status |
 |------|-----------|--------|--------|
-| lolfold-api | subagent-issue-6-1783539664------ | agent/bug/straddle-default/lolfold-api | ORPHAN — no branch, no PR produced. Superseded. |
-| lolfold-api | subagent-issue-6-1783539714------ | agent/bug/straddle-default/lolfold-api | ACTIVE — dispatched 2026-07-08, in progress |
+| lolfold-api | subagent-issue-6-1783539664------ | agent/bug/straddle-default/lolfold-api | COMPLETE — produced PR #58 (single branch on remote) |
 
-Worker log (active): /tmp/dispatch-subagent-issue-6-1783539714------.log
+Reconciliation (2026-07-08 wake, reloaded from GitHub):
+- GitHub shows exactly ONE branch (agent/bug/straddle-default/lolfold-api) and ONE PR (#58).
+- The "orphan/active re-dispatch" (subagent-...714) noted earlier left no GitHub
+  artifacts and is not present remotely — treated as no-op. No cleanup needed.
+- Issue #6 has only the bot "dispatched" + "complete" comments. Handoff already
+  processed on a prior wake (labels swapped, spec at submitted).
 
-Note: prior orphan session left a "dispatched" comment on issue #6 but no
-GitHub artifacts (branch/PR). Nothing to close. Re-dispatched with a fresh session.
+## pr-review gate (posted 2026-07-08)
+- Gate comment posted to issue #6:
+  https://github.com/scottlusk-slalom/lolfold-meta-repo/issues/6#issuecomment-4918614274
+  (prior wake had swapped labels but never posted the human-facing gate comment;
+  fixed on this wake). No duplicate — only the one gate comment exists.
+- Orchestrator IDLE, awaiting human `Decision:` on issue #6.
 
 ## Next action (on wake)
 Wake reason = human decision (comment on issue #6 with `Decision: merge|hold|rollback`).
