@@ -1,6 +1,6 @@
 title: Default blinds to 2/5 instead of 1/2
 type: bug
-status: planned
+status: submitted
 quality_gate: minimal
 repos:
   - lolfold-api
