@@ -86,8 +86,21 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
    - Duplicate guard: `gh pr list --search "$ARGUMENTS" --state open` and `git ls-remote --heads origin agent/*/$ARGUMENTS/*`
    - Status issue exists: `gh issue list --label spec-status --state open --search "$ARGUMENTS"`. Create one if missing.
 5. **Dispatch sequentially.** For each repo in order:
+   - Read the `build` config for this repo from `project/project-repositories.yaml`.
    - Compose sub-agent prompt:
-     > "You are a sub-agent. Read AGENTS.md for shared rules. Execute the spec at specs/$ARGUMENTS/ for repo {repo-name}. Read the plan at specs/$ARGUMENTS/scratch/plan.md for your tasks. Work in the worktree at specs/$ARGUMENTS/repo/{repo-name}/. When done, open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Post ONE progress comment to status issue #{issue_number} — check existing comments first and do not duplicate."
+     > "You are a sub-agent. Read AGENTS.md for shared rules. Execute the spec at specs/$ARGUMENTS/ for repo {repo-name}. Read the plan at specs/$ARGUMENTS/scratch/plan.md for your tasks.
+     >
+     > **Workspace setup:** Clone {clone_url} into your working directory. Then run: `{build.install}`. Verify baseline: run `{build.build}` and `{build.test}` — if either fails before you change anything, post to the status issue that the repo baseline is broken and halt.
+     >
+     > **Execution:** Implement the spec using TDD. For each change: write a failing test first, implement until it passes, then verify the full suite still passes. Run `{build.typecheck}` if configured.
+     >
+     > **Pre-submit verification (MANDATORY):** Before opening your PR, ALL of these must pass:
+     > 1. `{build.build}` exits 0
+     > 2. `{build.test}` exits 0
+     > 3. `{build.typecheck}` exits 0 (if configured)
+     > If any gate fails after 3 fix attempts, open a DRAFT PR with label `sub-agent-failed` instead.
+     >
+     > **On success:** Open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Include in the PR body which gates passed. Post ONE progress comment to status issue #{issue_number} — check existing comments first and do not duplicate."
    - **Cloud mode** (`$SUBAGENT_RUNTIME_ARN` set):
      ```
      python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py \
@@ -101,14 +114,17 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
 
 ### executed → submitted
 
-1. Verify all sub-agent PRs exist (one per repo). Read PR bodies for companion PR links.
-2. Check quality gate for `pr-review`:
+1. Verify all sub-agent PRs exist (one per repo). Check labels:
+   - If ANY PR has label `sub-agent-failed`: **HALT.** Do not advance. Post failure summary to status issue. Update `scratch/orchestrator.md` with failure details. Go idle.
+   - If all PRs have label `sub-agent-complete`: proceed.
+2. Read PR bodies for companion PR links and verification results.
+3. Check quality gate for `pr-review`:
    - If gate requires pause:
      a. Ensure labels exist on target repo (create if missing): `orchestrator-pause`, `pr-review`
      b. Mutate sub-agent PR(s) — swap `sub-agent-complete` label for `orchestrator-pause` + `pr-review`.
      c. Edit PR body with review-gate template. Go idle.
-   - If gate skips: proceed to step 3.
-3. Update `spec.yaml` status to `submitted`, commit and push.
+   - If gate skips: proceed to step 4.
+4. Update `spec.yaml` status to `submitted`, commit and push.
 
 ### submitted → archived
 

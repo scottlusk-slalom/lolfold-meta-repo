@@ -44,6 +44,12 @@ repositories:
       repository: lolfold-api
       clone_url: https://github.com/scottlusk-slalom/lolfold-api.git
       default_branch: main
+    build:
+      runtime: node
+      install: npm ci
+      build: npm run build
+      test: npm test
+      typecheck: npx tsc --noEmit
     context:
       primary: AGENTS.md
       secondary:
