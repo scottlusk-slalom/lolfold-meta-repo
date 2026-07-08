@@ -2,6 +2,8 @@
 
 Full pipeline from planning spec to executed slices: analyze → decompose → generate feature specs → dispatch loops per step.
 
+**Cloud Mode:** If `$SUBAGENT_RUNTIME_ARN` is set, use `/orchestrate` for cloud dispatch. This command is for local execution only.
+
 ## Usage
 /dispatch-batch <planning-spec-id> --steps <A,B,...> [--dry-run] [--skip-analysis] [--skip-decompose] [--skip-generate] [--gates <minimal|standard|full>]
 

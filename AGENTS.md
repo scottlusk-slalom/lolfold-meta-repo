@@ -150,6 +150,38 @@ CONFLUENCE_USER=<your-email>
 CONFLUENCE_API_TOKEN=<your-token>
 ```
 
+## Cloud Execution Mode
+
+Opt-in mode for running specs via AWS Bedrock AgentCore instead of local execution. When enabled, spec orchestration dispatches to cloud runtimes that execute work and integrate with GitHub webhooks.
+
+### Activation
+
+Requires two environment variables:
+```
+SUBAGENT_RUNTIME_ARN=<arn:aws:bedrock:region:account:agent-runtime/runtime-id>
+CLAUDE_CODE_USE_BEDROCK=1
+```
+
+Set these in `.claude/settings.local.json` or your shell profile after deploying the ae-harness-infra infrastructure.
+
+### Detection
+
+Check `$SUBAGENT_RUNTIME_ARN` — if set, you're in cloud mode.
+
+### Orchestration
+
+Use `/orchestrate <spec-path>` to dispatch specs to the cloud runtime. The orchestrator:
+- Prepares session state (spec, context, repo metadata)
+- Invokes AgentCore with protocol from `specifics/transport/github-prs.md`
+- Creates PR with tracking labels (session ID, spec key, repo)
+- Configures webhook to resume on PR comments
+
+### Local Execution
+
+When `SUBAGENT_RUNTIME_ARN` is unset, `/multi-repo-loop` and `/dispatch-batch` run locally as usual.
+
+For setup, see `docs/how-to/cloud-execution-setup.md`. Platform architecture and protocol details in `specifics/`.
+
 ## Reference Documentation
 
 - **Workflow:** See `META-REPO-GUIDE.md` for day-to-day operations

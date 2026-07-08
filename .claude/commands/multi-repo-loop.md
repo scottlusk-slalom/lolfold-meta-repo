@@ -2,6 +2,8 @@
 
 Core dispatch loop — execute a master spec across multiple target repos via per-repo execution sub-loops.
 
+**Cloud Mode:** If `$SUBAGENT_RUNTIME_ARN` is set, use `/orchestrate` instead. This command is for local execution only.
+
 ## Usage
 /multi-repo-loop <SPEC_KEY> [--gates <minimal|standard|full>] [--repos <r1,r2>] [--dry-run] [--strict]
 
