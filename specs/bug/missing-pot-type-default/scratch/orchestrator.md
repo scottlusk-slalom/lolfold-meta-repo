@@ -30,15 +30,12 @@ Status: Awaiting human review decision on PR #36.
 
 ## Orphan Cleanup
 
-- Closed PR #16 (orphan, branch deleted)
-- Closed PR #22 (orphan, branch deleted)
-- Closed PR #25 (orphan, branch deleted)
-- PR #21, #28 were closed by external processes (prior sub-agent attempts)
+- Closed PR #16, #20, #21, #22, #23, #24, #25, #27, #28, #29, #32, #40 (duplicates from multiple dispatch attempts)
 
 ## Next Steps
 
 1. Human reviews PR #36 and comments with decision
-2. On `Decision: merge` → merge PR, advance spec to `archived`, close status issue
+2. On `Decision: merge` → merge PR, advance spec to `archived`, close status issue #2
 3. On `Decision: hold` → stay idle
 4. On `Decision: rollback` → close PR, reset spec to `executed`
 
@@ -48,4 +45,5 @@ None.
 
 ## Timestamp
 
+Dispatched: 2026-07-08T14:21Z
 Gate activated: 2026-07-08T14:30Z
