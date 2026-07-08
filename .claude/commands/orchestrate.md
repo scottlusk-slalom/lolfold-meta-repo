@@ -129,15 +129,15 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
    - If ANY PR has label `sub-agent-failed`: **HALT.** Do not advance. Post failure summary to status issue. Update `scratch/orchestrator.md` with failure details. Go idle.
    - If all PRs have label `sub-agent-complete`: proceed.
 2. Read PR bodies for companion PR links and verification results.
-3. Check quality gate for `pr-review`:
+3. **Advance state first (before any idle).** Update `spec.yaml` status to `submitted`, commit and push to main. This MUST happen before going idle at the gate — otherwise the pushed status never reflects that the gate was reached, and a later resume misreads the lifecycle position. Also update `scratch/orchestrator.md`.
+4. Check quality gate for `pr-review`:
    - If gate requires pause:
      a. Ensure labels exist on target repo (create if missing): `orchestrator-pause`, `pr-review`
      b. Mutate sub-agent PR(s) — swap `sub-agent-complete` label for `orchestrator-pause` + `pr-review`.
      c. Post a review-gate comment to the **metarepo status issue** (NOT the target PR) with: links to each sub-agent PR, what passed (gates), and how to respond. The human reviews the diff on the target PR but leaves their decision on the status issue:
         > "Review the PR(s) linked above. Then comment here with: `Decision: merge` | `Decision: hold` | `Decision: rollback`."
         Do NOT append the wake marker (Rule 9). Go idle.
-   - If gate skips: proceed to step 4.
-4. Update `spec.yaml` status to `submitted`, commit and push.
+   - If gate skips: the spec is already `submitted` (step 3) — proceed to `submitted → archived`.
 
 ### submitted → archived
 
