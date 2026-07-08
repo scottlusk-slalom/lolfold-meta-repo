@@ -2,14 +2,14 @@
 
 ## Current Position
 
-Lifecycle: `planned → executed` (in progress)
-Status: Sub-agent dispatched, awaiting completion.
+Lifecycle: `submitted` (pr-review gate active)
+Status: Awaiting human review decision on PR #36.
 
 ## Dispatched Repos
 
-| Repo | Status | Session ID | Branch |
-|------|--------|------------|--------|
-| lolfold-api | dispatched | 3fe1f973-92b9-4ce6-b9a4-01285c7f8990 | agent/bug/missing-pot-type-default |
+| Repo | Status | PR | Branch |
+|------|--------|-----|--------|
+| lolfold-api | pr-review gate | scottlusk-slalom/lolfold-api#36 | fix/missing-pot-type-default-single-raised |
 
 ## Status Issue
 
@@ -21,20 +21,26 @@ Status: Sub-agent dispatched, awaiting completion.
 - Level: minimal
 - spec-review: skipped
 - plan-review: skipped
-- pr-review: PAUSE (will trigger after execution)
+- pr-review: PAUSE (active — awaiting human decision on PR #36)
 - spec-complete: skipped
 
 ## Pending Decisions
 
-None — awaiting sub-agent completion.
+- PR #36 on scottlusk-slalom/lolfold-api: awaiting `Decision: merge | hold | rollback`
+
+## Orphan Cleanup
+
+- Closed PR #16 (orphan, branch deleted)
+- Closed PR #22 (orphan, branch deleted)
+- Closed PR #25 (orphan, branch deleted)
+- PR #21, #28 were closed by external processes (prior sub-agent attempts)
 
 ## Next Steps
 
-1. Sub-agent completes and opens PR on scottlusk-slalom/lolfold-api with label `sub-agent-complete`
-2. Orchestrator resumes (via webhook or manual re-invocation)
-3. Update spec.yaml status to `executed`
-4. Apply pr-review gate (swap labels on sub-agent PR to `orchestrator-pause` + `pr-review`)
-5. Go idle awaiting human review decision
+1. Human reviews PR #36 and comments with decision
+2. On `Decision: merge` → merge PR, advance spec to `archived`, close status issue
+3. On `Decision: hold` → stay idle
+4. On `Decision: rollback` → close PR, reset spec to `executed`
 
 ## Errors
 
@@ -42,4 +48,4 @@ None.
 
 ## Timestamp
 
-Dispatched: 2026-07-08T14:21Z
+Gate activated: 2026-07-08T14:30Z
