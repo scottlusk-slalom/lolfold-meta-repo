@@ -14,6 +14,8 @@ Spec path: `$ARGUMENTS` (e.g., `feature/oauth-integration` or `feature/platform-
 4. **Check for duplicate dispatches before dispatching.** Search for existing open PRs, branches, and status issues from prior attempts. Close orphans before re-dispatching.
 5. **Zero commits to main between dispatch and merge of sub-agent PR.** All gate mutations happen on the sub-agent's branch or orchestrator review branch.
 6. **Dispatch via the correct mechanism.** If `$SUBAGENT_RUNTIME_ARN` is set, use `python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py`. If unset, use the Agent tool (in-process).
+7. **No duplicate status comments.** Before posting to a status issue, check existing comments: `gh issue view <N> --repo <repo> --json comments --jq '[.comments[].body]'`. If a comment with the same status keyword (e.g., "Sub-agent complete", "dispatched") already exists for the same repo, do NOT post another.
+8. **Ensure labels exist before applying them.** Before swapping labels on a PR, verify the label exists: `gh label list --repo <repo> --search <label>`. If missing, create it: `gh label create <label> --repo <repo> --color <hex> --description <desc>`.
 
 ## Context Loading
 
@@ -85,7 +87,7 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
    - Status issue exists: `gh issue list --label spec-status --state open --search "$ARGUMENTS"`. Create one if missing.
 5. **Dispatch sequentially.** For each repo in order:
    - Compose sub-agent prompt:
-     > "You are a sub-agent. Read AGENTS.md for shared rules. Execute the spec at specs/$ARGUMENTS/ for repo {repo-name}. Read the plan at specs/$ARGUMENTS/scratch/plan.md for your tasks. Work in the worktree at specs/$ARGUMENTS/repo/{repo-name}/. When done, open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Post progress to status issue #{issue_number}."
+     > "You are a sub-agent. Read AGENTS.md for shared rules. Execute the spec at specs/$ARGUMENTS/ for repo {repo-name}. Read the plan at specs/$ARGUMENTS/scratch/plan.md for your tasks. Work in the worktree at specs/$ARGUMENTS/repo/{repo-name}/. When done, open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Post ONE progress comment to status issue #{issue_number} — check existing comments first and do not duplicate."
    - **Cloud mode** (`$SUBAGENT_RUNTIME_ARN` set):
      ```
      python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py \
@@ -95,15 +97,18 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
      Record session ID to `scratch/orchestrator.md`. Go idle.
    - **Local mode** (`$SUBAGENT_RUNTIME_ARN` unset):
      Use the Agent tool with `isolation: "worktree"` to dispatch the sub-agent in-process. Wait for completion before dispatching the next repo.
-6. After all repos complete: update `spec.yaml` status to `executed`, commit.
+6. After all repos complete: update `spec.yaml` status to `executed`, commit and push to main.
 
 ### executed → submitted
 
 1. Verify all sub-agent PRs exist (one per repo). Read PR bodies for companion PR links.
 2. Check quality gate for `pr-review`:
-   - If gate requires pause: mutate sub-agent PR(s) — swap `sub-agent-complete` label for `orchestrator-pause` + `pr-review`. Edit PR body with review-gate template. Go idle.
+   - If gate requires pause:
+     a. Ensure labels exist on target repo (create if missing): `orchestrator-pause`, `pr-review`
+     b. Mutate sub-agent PR(s) — swap `sub-agent-complete` label for `orchestrator-pause` + `pr-review`.
+     c. Edit PR body with review-gate template. Go idle.
    - If gate skips: proceed to step 3.
-3. Update `spec.yaml` status to `submitted`, commit.
+3. Update `spec.yaml` status to `submitted`, commit and push.
 
 ### submitted → archived
 
