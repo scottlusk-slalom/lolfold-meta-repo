@@ -1,6 +1,6 @@
 title: Default straddle flag to false when not specified
 type: bug
-status: planned
+status: submitted
 quality_gate: minimal
 repos:
   - lolfold-api

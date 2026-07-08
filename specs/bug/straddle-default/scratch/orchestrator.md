@@ -11,31 +11,37 @@
 - Repos: lolfold-api (single repo)
 
 ## Lifecycle position
-- Current spec.yaml status: **planned** (execution dispatched, awaiting sub-agent PR)
+- Current spec.yaml status: **submitted** (sub-agent PR verified, pr-review gate open)
 - specified → planned: DONE (plan written, committed, pushed to main)
+- planned → executed → submitted: DONE (2026-07-08 resume on sub-agent handoff)
 - Plan file: scratch/plan.md
+
+## Sub-agent PR (verified on handoff)
+- Repo: scottlusk-slalom/lolfold-api
+- PR: #58 — https://github.com/scottlusk-slalom/lolfold-api/pull/58
+- Branch: agent/bug/straddle-default/lolfold-api
+- Files: src/services/hand.ts (+ rule 12), src/services/hand.prompt.test.ts (+ pin test)
+- Gates reported+verified: build/test/typecheck all exit 0; diff matches acceptance criteria
+- Label at handoff: sub-agent-complete → swapped to orchestrator-pause + pr-review
 
 ## Dispatches
 | Repo | Session ID | Branch | Status |
 |------|-----------|--------|--------|
-| lolfold-api | subagent-issue-6-1783539664------ | agent/bug/straddle-default/lolfold-api | dispatched, in progress |
+| lolfold-api | subagent-issue-6-1783539664------ | agent/bug/straddle-default/lolfold-api | ORPHAN — no branch, no PR produced. Superseded. |
+| lolfold-api | subagent-issue-6-1783539714------ | agent/bug/straddle-default/lolfold-api | ACTIVE — dispatched 2026-07-08, in progress |
 
-Worker log: /tmp/dispatch-subagent-issue-6-1783539664------.log
+Worker log (active): /tmp/dispatch-subagent-issue-6-1783539714------.log
+
+Note: prior orphan session left a "dispatched" comment on issue #6 but no
+GitHub artifacts (branch/PR). Nothing to close. Re-dispatched with a fresh session.
 
 ## Next action (on wake)
-Wake reason = sub-agent handoff (completion comment with wake marker on issue #6).
-Then run `executed → submitted`:
-1. Verify sub-agent PR on scottlusk-slalom/lolfold-api exists.
-   - If label `sub-agent-failed` → HALT, post failure summary, go idle.
-   - If label `sub-agent-complete` → proceed.
-2. Advance spec.yaml status planned → executed → submitted; commit+push to main
-   (advance BEFORE going idle at gate).
-3. Apply pr-review gate (minimal pauses here):
-   - Ensure labels exist on lolfold-api: orchestrator-pause, pr-review.
-   - Swap sub-agent-complete → orchestrator-pause + pr-review on the PR.
-   - Post review-gate comment to issue #6 (NOT the target PR); link the PR.
-     Do NOT emit the wake marker (Rule 9).
-   - Go idle awaiting human `Decision: merge|hold|rollback` on issue #6.
+Wake reason = human decision (comment on issue #6 with `Decision: merge|hold|rollback`).
+Confirm commenter is human (login not ending `[bot]`), then run `submitted → archived`:
+- `Decision: merge` → merge PR #58 (`gh pr merge --squash --delete-branch`);
+  spec-complete SKIPs (minimal) → set spec.yaml archived, push, close issue #6.
+- `Decision: hold` → go idle, inform user.
+- `Decision: rollback` → close PR #58, reset spec to executed, document.
 
 ## Pending decisions
 - None yet.
