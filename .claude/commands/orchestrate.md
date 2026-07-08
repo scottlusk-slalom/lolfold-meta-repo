@@ -52,7 +52,7 @@ Read `quality_gate` from `spec.yaml` (default: `standard`). This determines whic
 |------|-----------|------------|--------|
 | `spec-review` | skip | skip | PAUSE |
 | `plan-review` | skip | PAUSE | PAUSE |
-| `pr-review` | skip | PAUSE | PAUSE |
+| `pr-review` | PAUSE | PAUSE | PAUSE |
 | `spec-complete` | skip | skip | PAUSE |
 
 If the gate level says "skip" for a given gate, proceed without creating a pause PR.
