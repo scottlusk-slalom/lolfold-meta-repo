@@ -2,28 +2,37 @@
 
 ## Lifecycle Position
 
-**Current status:** `planned` → dispatching to `executed`
+**Current status:** `submitted` — pr-review gate active, awaiting human decision
 
 ## Dispatch Record
 
 ### lolfold-api
-- **Session ID:** `subagent-bug-missing-pot-type-default-lolfold-api-20260708T000000Z`
-- **Runtime ARN:** `arn:aws:bedrock-agentcore:us-west-2:446490546198:runtime/lolfold_harness_subagent-rHhvan4MZV`
+- **PR:** scottlusk-slalom/lolfold-api#51
+- **Branch:** `agent/bug/missing-pot-type-default/lolfold-api`
 - **Status issue:** scottlusk-slalom/lolfold-api#52
-- **Branch (expected):** `agent/bug/missing-pot-type-default`
-- **Dispatched at:** 2026-07-08
-- **Status:** DISPATCHED (awaiting completion)
+- **Sub-agent result:** ✅ All gates passed (build, test, typecheck)
+- **Labels:** `orchestrator-pause`, `pr-review`
+
+## Gate Status
+
+| Gate | Required | Status |
+|------|----------|--------|
+| spec-review | skip (minimal) | N/A |
+| plan-review | skip (minimal) | N/A |
+| pr-review | PAUSE | ⏸️ ACTIVE — awaiting human comment on PR #51 |
+| spec-complete | skip (minimal) | N/A |
 
 ## Pending Decisions
 
-None — minimal gate level, no human pause required until PR review.
+- Human must comment on PR #51 with `Decision: merge | changes_requested | rejected`
 
-## Next Steps
+## Next Steps (on resume)
 
-1. Sub-agent completes work on lolfold-api
-2. Sub-agent opens PR with label `sub-agent-complete` on branch `agent/bug/missing-pot-type-default`
-3. On resume: verify PR exists, advance status to `executed` → `submitted`
-4. Since quality_gate=minimal, pr-review still requires PAUSE — swap labels and go idle for human review.
+1. Check PR #51 for human comment (non-bot)
+2. Parse structured decision
+3. If `merge`: merge PR, advance to `archived`, close status issue
+4. If `changes_requested`: document feedback, go idle
+5. If `rejected`: close PR, reset to `executed`
 
 ## Errors
 
