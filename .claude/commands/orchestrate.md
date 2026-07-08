@@ -16,6 +16,15 @@ Spec path: `$ARGUMENTS` (e.g., `feature/oauth-integration` or `feature/platform-
 6. **Dispatch via the correct mechanism.** If `$SUBAGENT_RUNTIME_ARN` is set, use `python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py`. If unset, use the Agent tool (in-process).
 7. **No duplicate status comments.** Before posting to a status issue, check existing comments: `gh issue view <N> --repo <repo> --json comments --jq '[.comments[].body]'`. If a comment with the same status keyword (e.g., "Sub-agent complete", "dispatched") already exists for the same repo, do NOT post another.
 8. **Ensure labels exist before applying them.** Before swapping labels on a PR, verify the label exists: `gh label list --repo <repo> --search <label>`. If missing, create it: `gh label create <label> --repo <repo> --color <hex> --description <desc>`.
+9. **Never emit the wake marker.** The string `<!-- ORCHESTRATOR-WAKE ... -->` is reserved for sub-agents to signal completion. If YOU (the orchestrator) ever write it in a comment, you will re-wake yourself in an infinite loop. Only sub-agents emit it.
+
+## Wake Model (cloud mode)
+
+Coordination is centralized on the spec's **metarepo status issue** — target repos have no webhooks. You are woken by a GitHub webhook (`issue_comment` on the status issue) in exactly two cases:
+- **Sub-agent handoff:** the sub-agent posts a completion comment ending with `<!-- ORCHESTRATOR-WAKE spec=... -->`. On this wake, verify the sub-agent's PR(s) and advance the lifecycle.
+- **Human decision:** a human comments `Decision: merge|hold|rollback` on the status issue. On this wake, parse the decision and act.
+
+On any wake, reload state from `scratch/orchestrator.md` and the status issue — do not assume warm memory.
 
 ## Context Loading
 
@@ -100,7 +109,9 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
      > 3. `{build.typecheck}` exits 0 (if configured)
      > If any gate fails after 3 fix attempts, open a DRAFT PR with label `sub-agent-failed` instead.
      >
-     > **On success:** Open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Include in the PR body which gates passed. Post ONE progress comment to status issue #{issue_number} — check existing comments first and do not duplicate."
+     > **On success:** Open a PR on the target repo with label `sub-agent-complete` on branch `agent/{spec-type}/{spec-name}/{repo-name}`. Include in the PR body which gates passed. Then post ONE completion comment to status issue #{issue_number} in the metarepo — check existing comments first and do not duplicate. This comment MUST end with the exact wake marker on its own line so the orchestrator is woken:
+     > `<!-- ORCHESTRATOR-WAKE spec={spec-type}/{spec-name} -->`
+     > (The orchestrator is woken by this marker. Only the sub-agent emits it — never the orchestrator.)"
    - **Cloud mode** (`$SUBAGENT_RUNTIME_ARN` set):
      ```
      python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py \
@@ -122,26 +133,27 @@ If the gate level says "skip" for a given gate, proceed without creating a pause
    - If gate requires pause:
      a. Ensure labels exist on target repo (create if missing): `orchestrator-pause`, `pr-review`
      b. Mutate sub-agent PR(s) — swap `sub-agent-complete` label for `orchestrator-pause` + `pr-review`.
-     c. Edit PR body with review-gate template. Go idle.
+     c. Post a review-gate comment to the **metarepo status issue** (NOT the target PR) with: links to each sub-agent PR, what passed (gates), and how to respond. The human reviews the diff on the target PR but leaves their decision on the status issue:
+        > "Review the PR(s) linked above. Then comment here with: `Decision: merge` | `Decision: hold` | `Decision: rollback`."
+        Do NOT append the wake marker (Rule 9). Go idle.
    - If gate skips: proceed to step 4.
 4. Update `spec.yaml` status to `submitted`, commit and push.
 
 ### submitted → archived
 
-1. Check for human decisions on open gate PRs:
-   - `gh pr list --label orchestrator-pause --state open --search "$ARGUMENTS"`
-   - For each: `gh pr view <N> --comments` — look for human comment.
-2. Parse structured decision from comment:
-   - `Decision: merge` → merge all companion PRs, then the metarepo PR. Delete branches.
+Reached on a human-decision wake (comment on the status issue containing `Decision:`).
+
+1. Read the decision from the status issue: `gh issue view <issue> --repo <metarepo> --comments`. Confirm the commenter is human (login does not end with `[bot]`).
+2. Parse the structured decision:
+   - `Decision: merge` → merge all sub-agent PR(s) on target repos (`gh pr merge --squash --delete-branch`).
    - `Decision: hold` → go idle, inform user.
    - `Decision: rollback` → close PRs, reset spec to `executed`, document in scratch.
 3. After all PRs merged:
    - Check quality gate for `spec-complete`:
-     - If gate requires pause: create close-out PR on branch `orchestrator/{spec-type}/{spec-name}/complete` with summary. Go idle.
+     - If gate requires pause: post a close-out summary to the status issue and go idle.
      - If gate skips: proceed.
-   - Update `spec.yaml` status to `archived`.
+   - Update `spec.yaml` status to `archived`, commit and push.
    - Close status issue.
-   - Commit final state.
 
 ## Gate Protocol
 
@@ -168,26 +180,27 @@ For `spec-review` and `plan-review` — no sub-agent PR exists yet:
    ```
 5. Go idle.
 
-### Post-Execution Gates (mutates sub-agent PR)
+### Post-Execution Gates (label swap + status-issue comment)
 
 For `pr-review`, quality gates, and `spec-complete`:
 
-1. Swap labels on sub-agent's PR: remove `sub-agent-complete`, add `orchestrator-pause` + specific gate label.
-2. Edit PR body to review-gate template.
+1. Swap labels on the sub-agent's PR: remove `sub-agent-complete`, add `orchestrator-pause` + specific gate label.
+2. Post the review-gate comment to the **metarepo status issue** (not the PR). Link the PR(s). Do NOT emit the wake marker (Rule 9).
 3. Go idle.
 
 ## Resume Flow
 
-When re-invoked after going idle:
+When re-invoked after going idle (via a webhook wake or manual re-run):
 
-1. Load context (see Context Loading above).
-2. Check for open gate PRs with human comments.
-3. Verify commenter is human (not bot): check login does not end with `[bot]`.
-4. Parse structured decision:
-   - `Decision: approved` → merge/close gate PR (`--delete-branch`), proceed to next lifecycle step.
-   - `Decision: rejected` → close gate PR, reset status one step back, document in scratch.
-   - `Decision: changes_requested` → document feedback in scratch, inform user of needed changes, go idle.
-5. If no human comment found on any open gate: report "Waiting for human decision on PR #N" and go idle.
+1. Load context (see Context Loading above) — always reload `scratch/orchestrator.md` and the status issue; assume no warm memory.
+2. Determine the wake reason from the prompt / issue state:
+   - **Sub-agent handoff** (completion comment with wake marker) → verify the sub-agent PR(s), then run the `executed → submitted` lifecycle step (apply the `pr-review` gate).
+   - **Human decision** (comment with `Decision:` on the status issue) → confirm the commenter is human (login not ending `[bot]`), then run `submitted → archived`.
+3. Parse structured decision:
+   - `Decision: merge` → merge sub-agent PR(s) (`--delete-branch`), proceed to `archived`.
+   - `Decision: hold` → go idle, inform user.
+   - `Decision: rollback` → reset status one step back, close PRs, document in scratch.
+4. If woken but no actionable signal is found (no marker, no human decision): report what state you're in and go idle.
 
 ## Scratch State
 
