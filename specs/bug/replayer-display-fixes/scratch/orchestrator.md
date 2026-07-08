@@ -15,11 +15,13 @@
 - Plan file: specs/bug/replayer-display-fixes/scratch/plan.md (on main)
 
 ## Repos & dispatch status
-- lolfold-frontend: DISPATCHING
+- lolfold-frontend: DISPATCHED (idle, awaiting completion handoff)
   - branch: agent/bug/replayer-display-fixes/lolfold-frontend
   - clone: https://github.com/scottlusk-slalom/lolfold-frontend.git
   - build: install=npm ci, build=npm run build, test=npm run test:run, typecheck=npx tsc -b --noEmit
-  - session id: (recorded after dispatch below)
+  - session id: subagent-issue-11-1783544184-----
+  - dispatch log: /tmp/dispatch-subagent-issue-11-1783544184-----.log
+  - dispatch status comment posted to #11
 
 ## Duplicate guard (checked, clean before dispatch)
 - No agent/* branches on lolfold-frontend.
