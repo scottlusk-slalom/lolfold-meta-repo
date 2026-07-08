@@ -16,6 +16,12 @@ repositories:
       repository: lolfold-frontend
       clone_url: https://github.com/scottlusk-slalom/lolfold-frontend.git
       default_branch: main
+    build:
+      runtime: node
+      install: npm ci
+      build: npm run build
+      test: npm run test:run   # NOT `npm test` — that is vitest watch mode and hangs
+      typecheck: npx tsc -b --noEmit
     context:
       primary: AGENTS.md
       secondary:
