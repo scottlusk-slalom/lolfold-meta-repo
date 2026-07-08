@@ -51,8 +51,30 @@ Confirm commenter is human (login not ending `[bot]`), then run `submitted → a
 - `Decision: hold` → go idle, inform user.
 - `Decision: rollback` → close PR #58, reset spec to executed, document.
 
+## Re-wake (2026-07-08, framed as "sub-agent handoff")
+- Reconciled against GitHub, not warm memory. Handoff was ALREADY processed on a
+  prior wake — the wake marker in issue #6 comment 2 was already consumed.
+- Actual state (verified): spec.yaml=submitted; PR #58 OPEN, MERGEABLE/CLEAN,
+  labels [orchestrator-pause, pr-review]; issue #6 has 4 comments, ALL from the
+  machine identity `scott-mlops-poc-foundry` — NO human `Decision:` comment.
+- pr-review gate is NOT satisfied (Rule 1: zero human comments). No new actionable
+  signal → report state and go idle (Resume Flow step 4).
+- Did NOT re-merge (would be self-approval) and did NOT post another gate comment
+  (Rule 7 — note: two pr-review gate comments already exist on #6 from prior wakes;
+  did not add a third).
+
+## Human decision (2026-07-08 wake — submitted → archived)
+- Human `scottlusk-slalom` (NOT a bot) commented on issue #6:
+  "Reviewed PR #58 — straddle default fix looks correct. Decision: merge"
+- Rule 1 satisfied: genuine human comment present. Parsed `Decision: merge`.
+- Merged PR #58 (`--squash --delete-branch`): state=MERGED, mergedAt 2026-07-08T19:53:03Z.
+- Quality gate `minimal` → spec-complete SKIPPED.
+- spec.yaml status: submitted → archived (committed + pushed to main).
+- Issue #6 closed.
+- LIFECYCLE COMPLETE.
+
 ## Pending decisions
-- None yet.
+- None. Spec archived.
 
 ## Errors
 - ORCHESTRATOR_SESSION_ID env was empty at dispatch — sub-agent not parent-pinned
