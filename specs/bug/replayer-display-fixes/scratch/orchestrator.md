@@ -1,9 +1,15 @@
 # Orchestrator State — bug/replayer-display-fixes
 
 ## Lifecycle position
-- spec.yaml status: `planned` (plan-review approved on PR #12, merged --delete-branch)
-- Current step: dispatching execution sub-agent to lolfold-frontend
-- Next gate: **pr-review** (standard) — after sub-agent PR completes
+- spec.yaml status: `submitted` (advanced on sub-agent handoff; committed+pushed to main BEFORE pr-review idle)
+- Current step: pr-review gate applied to lolfold-frontend PR #15; orchestrator idle awaiting human `Decision:`
+- Next gate: **pr-review** decision on #11 → merge|hold|rollback
+
+## Sub-agent handoff (verified)
+- PR #15 https://github.com/scottlusk-slalom/lolfold-frontend/pull/15 — OPEN, not draft
+- Label on arrival: sub-agent-complete (no sub-agent-failed) → verified OK
+- Single repo, no companion PRs. All gates pass (build/test:run/tsc).
+- pr-review gate: swapped sub-agent-complete → orchestrator-pause + pr-review; posted review-gate comment to #11 (no wake marker).
 
 ## Mode
 - Cloud (SUBAGENT_RUNTIME_ARN set)
