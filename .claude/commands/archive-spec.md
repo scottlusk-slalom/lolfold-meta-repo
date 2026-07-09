@@ -9,7 +9,7 @@ Infers spec from current working directory, or prompts via `/list-specs`. `--for
 
 ## Behavior
 
-1. Identify spec to archive (from CWD or interactive selection)
+1. Identify spec to archive (from CWD or interactive selection). In the cloud model, archival coincides with MERGING the metarepo spec PR to `main` — `/archive-spec` runs as/after the spec PR merges, reconciling frontmatter and gate state to `archived`.
 2. Verify gate status is `submitted` — HALT if not (archival is only legal from `submitted`; step 5's `/update-gate archived` would otherwise be a rejected multi-step jump). Override with `--force` only if you also intend to force the gate write.
 3. Update spec frontmatter: `status: archived`, `archived_date: <today>`
 4. Append `## Archive Summary` section to spec with:

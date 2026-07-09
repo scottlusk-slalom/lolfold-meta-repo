@@ -4,11 +4,21 @@ How the orchestrator's communication events map to GitHub. The orchestrator work
 
 ## Core Protocol
 
-**One PR per spec execution.** Each spec gets a single PR that progresses through lifecycle states via label mutations. The PR tracks the spec's journey from planning through submission.
+**Control surface = the metarepo SPEC PR.**
+
+Each spec execution maps to one metarepo spec PR on branch `spec/<type>/<key>`. That PR is the control surface for the spec's entire lifecycle: labels = lifecycle state, comments = human decisions, merge to `main` = archived.
+
+Kickoff: a human creates metarepo branch `spec/<type>/<key>`, adds the spec, pushes, opens the **metarepo spec PR** for that branch, and wakes the orchestrator. One spec → one metarepo spec PR.
+
+**Dispatch & companion PRs.**
+
+Orchestrator dispatches one sub-agent per target repo. Each sub-agent runs `/multi-repo-loop <key> --repos <repo> --gates <level>` whole on branch `agent/<type>/<key>` in that code repo, and opens a **code-repo companion PR**. Multi-repo specs ⇒ N companion PRs (expected, fine).
+
+**Companion PR Rule:** A spec is not complete until ALL PRs across ALL repos are merged. The orchestrator merges the metarepo spec PR to `main` (= archived) ONLY after all companion code PRs are merged.
 
 ## Spec Lifecycle Mapping
 
-The template's spec lifecycle: `specified → planned → executed → submitted → archived`
+Lifecycle states: `specified → planned → executed → submitted → archived`
 
 PR label taxonomy:
 
@@ -16,40 +26,30 @@ PR label taxonomy:
 |---|---|---|
 | `specified` | `spec-review` | Spec written, awaiting human approval to proceed |
 | `planned` | `plan-review` | Execution plan ready, awaiting human approval to execute |
-| `executed` | `sub-agent-complete` | Work complete in worktrees, not yet submitted |
-| `submitted` | `pr-review` | PRs created in target repos, awaiting merge |
+| `executed` | `sub-agent-complete` | Work complete in code repos, not yet submitted |
+| `submitted` | `pr-review` | Companion PRs merged, awaiting final archive approval |
+| `archived` | (no label) | Metarepo spec PR merged to `main` |
 | N/A | `orchestrator-pause` | Generic pause state (always paired with a specific gate label) |
+| N/A | `spec-complete` | All work done, summary for human (full gate only) |
 
 ## Event: Review Gate (PAUSE)
 
-There are two kinds of gates depending on when they fire in the lifecycle:
+**Gate = mutate the spec PR in place (foundry Universal Rule).**
 
-### Pre-Execution Gates (orchestrator-initiated)
+The orchestrator NEVER opens a new PR or branch for a gate. It commits any gate content to the EXISTING `spec/<type>/<key>` branch, swaps labels, and edits the PR body to the review-gate template. The human comments the decision on that same PR.
 
-`spec-review` and `plan-review` happen BEFORE sub-agents are dispatched. There is no sub-agent PR to mutate. The orchestrator creates its own PR:
+Steps:
 
-1. Create branch: `orchestrator/{spec-type}/{spec-name}/review`
-2. Commit the artifact being reviewed (spec file for `spec-review`, plan file for `plan-review`) to the branch.
-3. Open PR with labels: `orchestrator-pause` + gate type (`spec-review` or `plan-review`).
-4. Set PR body to the review-gate template (below).
-5. Go idle. Wait for human comment.
+1. Commit gate artifact (plan, summary, etc.) to the `spec/<type>/<key>` branch if needed.
+2. Swap labels: remove `sub-agent-complete` (if present), add `orchestrator-pause` + the specific gate-type label:
+   - `spec-review` — spec written, awaiting approval
+   - `plan-review` — execution plan ready, awaiting approval
+   - `pr-review` — companion PRs submitted, awaiting merge decision
+   - `spec-complete` — all work done, awaiting archive approval (full gate only)
+3. Edit the PR body to the review-gate template (below).
+4. Go idle. Wait for human comment.
 
-On resume: merge or close the PR (`--delete-branch`), then proceed with next lifecycle step.
-
-### Post-Execution Gates (mutates sub-agent PR)
-
-`pr-review`, quality gates (`gate-*-review`), and `spec-complete` happen AFTER sub-agents have produced work. The sub-agent already opened a PR with the `sub-agent-complete` label on branch `agent/{spec-type}/{spec-name}/{repo}`. The orchestrator mutates that PR in place:
-
-1. Swap labels: remove `sub-agent-complete`, add `orchestrator-pause` + the specific gate type label:
-   - `gate-minimal-review` — minimal quality gate requires human decision
-   - `gate-standard-review` — standard quality gate requires human decision
-   - `gate-full-review` — full quality gate requires human decision
-   - `pr-review` — PRs submitted, awaiting merge approval
-   - `spec-complete` — all work done, summary for human
-2. Edit the PR body to the review-gate template (below).
-3. Go idle. Wait for human comment.
-
-On resume: merge or close the PR (`--delete-branch`), advance spec status.
+On resume: merge or close the PR (`--delete-branch` when closing), advance lifecycle step.
 
 ### Review-Gate PR Body Template
 
@@ -61,84 +61,78 @@ What was done and where things stand.
 What the human needs to decide. Numbered options if applicable.
 
 ## Context
-Links to artifacts (PRs, logs, validation output). Key metrics. What happens after response.
+Links to artifacts — link EVERY companion code PR so reviewers know where to look (review the code diff on each companion PR) vs where to decide (comment here on the spec PR). Key metrics. What happens after response.
 
 ## How to Respond
-Leave a comment on this PR with your decision. The orchestrator will resume automatically.
+Comment on this PR with your Decision. The orchestrator will resume automatically.
 ```
 
 ## Event: Approval (RESUME)
 
 When the protocol says "check for pending review gates with human responses":
 
-1. **Find open gates**: `gh pr list --label orchestrator-pause --state open`
+1. **Find open gates**: `gh pr list --label orchestrator-pause --state open` (searches metarepo by default).
 2. **Read comments**: `gh pr view <number> --comments`
-3. **Verify human author**: `gh pr view <number> --json comments --jq '.comments[].author.login'`. If the only comments are from the bot identity, the gate is NOT satisfied — go idle.
-4. **Parse the response**: Read the comment to understand the decision.
-5. **Close the gate** (mandatory): Use `gh pr close` for consumed pause PRs or `gh pr merge` for PRs with spec changes. After merging or closing, delete the remote branch (`--delete-branch`).
+3. **Verify human author**: `gh pr view <number> --json comments --jq '.comments[].author.login'`. If login ends with `[bot]`, skip that comment — gate is NOT satisfied. Continue waiting.
+4. **Parse the response**: Read the comment for the structured `Decision:` field (see schemas below).
+5. **Act on the decision**: Execute the corresponding action (proceed, reject, hold, etc.).
+6. **Close the gate** (mandatory): Use `gh pr close` for rejected specs or `gh pr merge` to archive approved specs. After merging or closing, delete the remote branch (`--delete-branch`).
+
+## Event: Sub-Agent Complete
+
+When a sub-agent finishes work in a code repo:
+
+- Sub-agent adds the `sub-agent-complete` label to the metarepo spec PR via `gh pr edit <number> --add-label sub-agent-complete` — a label/comment MUTATION, NEVER a git branch push.
+- Sub-agent adds an informational comment to the spec PR summarizing completion status and linking the companion code PR.
+- The webhook (cloud) or orchestrator (local) picks up from there.
+
+**Serialized dispatch (cloud).** The orchestrator dispatches ONE sub-agent (one repo) at a time and clears the `sub-agent-complete` label after handling each repo before dispatching the next. This keeps the single label unambiguous — only one sub-agent can add it at a time — and avoids the concurrent-label webhook problem (GitHub does not re-fire a `pull_request` labeled event when a label is already present, and a shared label carries no per-repo identity). One repo in flight per spec; see `/orchestrate` State Assessment.
 
 ## Event: Status Update
 
-When the protocol says "post a status update":
+**Status issue = optional informational log (milestones only).**
 
-- On spec creation, create a GitHub Issue titled `Status: {spec-type}/{spec-name}` with label `spec-status`.
+The status issue is DEMOTED to an optional informational log, matching the foundry. It is NOT a control mechanism. Default: do NOT create one; the spec PR is the human-facing surface.
+
+When the protocol says "post a status update" AND a status issue exists:
+
 - Post comments at each milestone:
   - Sub-agent dispatch / completion
   - Pause gates hit / resumed
   - Quality gate results summary
   - Spec complete
-- Sub-agents also post progress comments (pass the issue number in the dispatch instruction). This is purely informational — not a control mechanism.
+- Sub-agents may also post progress comments (pass the issue number in the dispatch instruction). This is purely informational.
 
-When the spec completes, the orchestrator closes the status issue after opening the completion PR. The issue is informational — the completion PR is the authoritative close-out artifact.
-
-## Event: Sub-Agent Complete
-
-When a sub-agent finishes spec work:
-
-- Sub-agent opens a PR with the `sub-agent-complete` label (`gh pr create --label sub-agent-complete`)
-- The webhook (cloud) or orchestrator (local) picks up from there
+When the spec completes, the orchestrator closes the status issue after merging the metarepo spec PR to `main`. The issue is informational — the spec PR is the authoritative control surface.
 
 ## Companion PR Rule
 
-A spec is not complete until ALL its PRs across ALL repos are merged. Check the sub-agent's PR body for companion PR links. Merge or verify all are merged before updating spec status to `archived`.
+A spec is not complete until ALL its PRs across ALL repos are merged. Check each sub-agent's comment on the metarepo spec PR for companion PR links. Verify all companion PRs are merged before merging the metarepo spec PR to `main` (= archived).
 
 The orchestrator's scratch file (`specs/<type>/<initiative>/<slice>/scratch/orchestrator.md`) tracks companion PR URLs.
 
-## Duplicate Dispatch Guard (GitHub-specific checks)
+## Duplicate Dispatch Guard
 
 Before dispatching, check for prior attempts:
-- Check open PRs: `gh pr list --search "{spec-name} {spec-type}" --state open`
-- Check branches: `git ls-remote --heads origin agent/{spec-type}/{spec-name}/*`
-- Check status issues: `gh issue list --label spec-status --state open`
-- If prior attempts exist: close PRs, delete branches, close duplicate issues. Document in scratch.
+
+1. Check open PRs in metarepo: `gh pr list --search "<key>" --state open`
+2. Check open PRs in each target repo: `gh pr list --repo <org>/<repo> --search "<key>" --state open`
+3. Check metarepo branch: `git ls-remote --heads origin 'spec/<type>/<key>'`
+4. Check target repo branches: `git ls-remote --heads <target> 'agent/<type>/<key>'` (for each target repo)
+5. Check status issues: `gh issue list --label spec-status --state open` (if any status issue exists)
+
+If prior attempts exist: close PRs, delete branches, close duplicate issues. Document in scratch.
 
 ## Branch Naming
 
 | Creator | Pattern | Example |
 |---|---|---|
-| Sub-agent (metarepo PR) | `agent/{spec-type}/{spec-name}/{repo}` | `agent/feature/oauth-integration/api` |
-| Sub-agent (work repo PR) | `agent/{spec-type}/{spec-name}` | `agent/feature/oauth-integration` |
-| Orchestrator (close-out) | `orchestrator/{spec-type}/{spec-name}/complete` | `orchestrator/feature/oauth-integration/complete` |
+| Human/orchestrator (metarepo spec PR) | `spec/<type>/<key>` | `spec/feature/oauth-integration` |
+| Sub-agent (code-repo companion PR) | `agent/<type>/<key>` | `agent/feature/oauth-integration` |
 
-There is no separate orchestrator branch for review gates. Gates mutate the sub-agent's existing metarepo PR on `agent/{spec-type}/{spec-name}/{repo}`. The only orchestrator-owned branch is `orchestrator/{spec-type}/{spec-name}/complete` for the close-out PR.
+There is NO separate orchestrator close-out branch. Merging the spec PR to `main` IS the archival.
 
-Before creating a branch, check if it exists (`git ls-remote --heads origin {branch}`). If collision, append `-v2`. After merging or closing a PR, delete the remote branch (`--delete-branch`).
-
-## Quality Gate Integration
-
-The template's quality gate system (`minimal`, `standard`, `full`) maps to human review checkpoints:
-
-- **minimal**: automated only, no pause
-- **standard**: pause at plan-review + pr-review
-- **full**: pause at spec-review + plan-review + pr-review + spec-complete
-
-Gate configuration is in `spec.yaml` field: `quality_gate: minimal | standard | full`
-
-When a quality gate requires human review, the orchestrator:
-1. Adds the `orchestrator-pause` label
-2. Adds the gate-specific label (e.g., `gate-standard-review`)
-3. Waits for human comment on the PR
-4. Resumes after parsing the decision
+Before creating a branch, check if it exists (`git ls-remote --heads origin '<branch>'`). If collision, append `-v2`. After merging or closing a PR, delete the remote branch (`--delete-branch`).
 
 ## Structured Comment Schemas
 
@@ -163,14 +157,31 @@ Decision: merge | hold | rollback
 [optional context]
 ```
 
-### Gate Review Response (standard/full)
+### Spec Complete Response (full gate close-out only)
 ```
-Decision: proceed | retry | abort
+Decision: approved | changes_requested
 
-[optional instructions for retry, or reason for abort]
+[optional feedback]
 ```
+`approved` → orchestrator archives (merges the spec PR to `main`). `changes_requested` → orchestrator surfaces the request and does not archive.
 
-## PR Examples
+## Wake Events (Cloud Mode)
+
+**Wake = Option A (metarepo is the only webhook hub).**
+
+Webhooks fire on the METAREPO ONLY. Code repos carry no webhooks and stay "dumb".
+
+Three wake events, all native GitHub events on the metarepo spec PR:
+
+1. **Kickoff**: The metarepo spec PR is opened or labelled.
+2. **Sub-agent handoff**: A sub-agent, on completion, adds the `sub-agent-complete` label (and an informational comment) to the metarepo spec PR via `gh` — a label/comment mutation, never a git branch push.
+3. **Human decision**: A human comments a structured `Decision:` on the spec PR.
+
+The webhook handler (`specifics/platform/aws-agentcore/scripts/webhook-handler/`) filters for these events and invokes the orchestrator's AgentCore runtime. GitHub `issue_comment` events fire for BOTH issues and PRs, so the handler must ignore any `issue_comment` whose payload `issue` object lacks a `pull_request` field, or whose body has no `Decision:` line — otherwise unrelated metarepo issue comments would spuriously wake the orchestrator.
+
+**Local mode:** No webhooks. The orchestrator blocks on stdin or polls for comment updates (implementation TBD per `agent-runtime-local.md`).
+
+## PR Body Examples
 
 **Spec Review:**
 ```
@@ -190,108 +201,40 @@ Review the spec and approve to proceed with planning.
 - Estimated: 3-5 days
 
 ## How to Respond
-Comment "approved" to proceed, or list specific changes needed.
+Comment on this PR with your Decision. The orchestrator will resume automatically.
 ```
 
-**Plan Review:**
+**PR Review (per repo — serialized dispatch fires one of these per repo):**
 ```
-Title: Plan review: OAuth integration execution plan
-Labels: orchestrator-pause, plan-review
+Title: PR review: OAuth integration — api
+Labels: orchestrator-pause, pr-review
 
 ## Status
-Execution plan complete. Work decomposed into 2 repos: api (passport.js setup), web-client (OAuth button + callback).
-Plan file: specs/feature/oauth-integration/scratch/plan.md
+Repo `api` complete (repo 1 of 2 for this spec). Its companion PR is open and ready for review.
 
 ## Decision Needed
-Review the plan and approve to begin execution.
+Review the api companion PR and approve to merge. After merge, the orchestrator dispatches the next repo (`web-client`).
 
 ## Context
-- API changes: 3 new routes, 2 new middleware
-- Web changes: 1 new component, OAuth callback handler
-- Quality gate: standard (includes PR review)
+- API companion PR: org/api-repo#45 (3 new routes, 2 new middleware, 12 new tests)
+- All tests passing
+- Quality gate: standard (linting + tests passed)
+- Remaining repos: web-client
+
+Review the code diff on the companion PR. Comment your decision here on the spec PR.
 
 ## How to Respond
-Comment "approved" to dispatch sub-agents, or request changes.
+Comment on this PR with your Decision. The orchestrator will resume automatically.
 ```
-
-**Gate Failure (standard):**
-```
-Title: Gate failure: standard quality gate — OAuth integration
-Labels: orchestrator-pause, gate-standard-review
-
-## Status
-Execution complete. 2/3 gate checks passed.
-- Tests: passed (12 new tests, 100% coverage)
-- Linting: passed
-- Security scan: FAILED (1 medium-severity finding)
-
-## Decision Needed
-Finding: Hardcoded redirect URI in development config
-1. Move redirect URI to environment variable and retry
-2. Add exception to security policy and proceed
-3. Abort and revise spec
-
-## Context
-- API PR: #45 (ready except for security finding)
-- Web PR: #46 (ready)
-
-## How to Respond
-Comment with the option number or describe an alternative.
-```
-
-**Spec Complete:**
-```
-Title: Spec complete: OAuth integration
-Labels: orchestrator-pause, spec-complete
-
-## Status
-All work complete. PRs merged.
-- API PR: #45 (merged)
-- Web PR: #46 (merged)
-- Tests: 12 new, all passing
-- Docs: OAuth setup guide added
-
-Merge this PR to archive the spec.
-```
-
-## Wake Events (Cloud Mode)
-
-When running in cloud mode (AgentCore), the orchestrator goes idle after opening a pause PR. GitHub webhooks trigger re-dispatch:
-
-**Wake triggers:**
-- Comment added to PR with `orchestrator-pause` label
-- PR with `orchestrator-pause` label closed or merged
-
-The webhook handler (`specifics/platform/aws-agentcore/scripts/webhook-handler/`) filters for these events and invokes the orchestrator's AgentCore runtime.
-
-**Local mode:** No webhooks. The orchestrator blocks on stdin or polls for comment updates (implementation TBD per `agent-runtime-local.md`).
 
 ## Error Recovery
 
 If sub-agent dispatch fails:
 1. Document failure in scratch (`specs/<type>/<initiative>/<slice>/scratch/orchestrator.md`)
-2. Close the PR with failure summary in final comment
-3. Delete the branch
-4. Update spec status to `specified` (reset to pre-execution state)
+2. Close the spec PR with failure summary in final comment
+3. Delete the `spec/<type>/<key>` branch
+4. Update spec status to `specified` (reset to pre-execution state) if needed
 
 If a gate comment is ambiguous or missing required fields:
 1. Reply with structured error comment requesting clarification
 2. Do NOT proceed — wait for valid response
-
-## Multi-Repo Coordination
-
-For specs touching multiple repos:
-
-1. Sub-agent creates one PR per repo (in the target work repos)
-2. Sub-agent opens one metarepo PR linking all companion PRs
-3. Orchestrator waits for ALL companion PRs to be merged before marking spec `archived`
-4. Companion PR links are tracked in metarepo PR body and orchestrator scratch
-
-Example metarepo PR body:
-```
-## Companion PRs
-- api: org/api-repo#45
-- web-client: org/web-client#46
-
-Do not merge this PR until all companion PRs are merged.
-```

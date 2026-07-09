@@ -58,6 +58,7 @@ def _worker(runtime_arn: str, region: str, payload_json: str, session_id: str):
 def dispatch(
     prompt: str,
     status_issue: int | None = None,
+    spec_pr: int | None = None,
     session_id: str | None = None,
 ) -> str:
     """Spawn a detached worker to invoke the sub-agent; return the session ID.
@@ -74,8 +75,17 @@ def dispatch(
     orchestrator_session = os.environ.get("ORCHESTRATOR_SESSION_ID")
 
     payload: dict = {"prompt": prompt}
+    # Unconditional marker: this script only ever runs to dispatch a sub-agent,
+    # so every payload it emits is, by definition, an orchestrator dispatch. The
+    # sub-agent's /multi-repo-loop cloud guard keys off the exported
+    # $DISPATCHED_BY_ORCHESTRATOR to distinguish itself from a top-level session.
+    # (Do NOT overload orchestrator_session_id for this — it is optional parent
+    # pinning and is absent unless the orchestrator's own env carries it.)
+    payload["dispatched_by_orchestrator"] = True
     if status_issue is not None:
         payload["status_issue"] = status_issue
+    if spec_pr is not None:
+        payload["spec_pr"] = spec_pr
     if orchestrator_session:
         payload["orchestrator_session_id"] = orchestrator_session
 
@@ -124,6 +134,8 @@ def dispatch(
     print(f"  Worker log: {log_path}")
     if status_issue:
         print(f"  Status issue: #{status_issue}")
+    if spec_pr:
+        print(f"  Spec PR: #{spec_pr}")
     if orchestrator_session:
         print(f"  Orchestrator: {orchestrator_session}")
     return sid
@@ -133,6 +145,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dispatch a sub-agent via AgentCore")
     parser.add_argument("--prompt", required=True, help="Full sub-agent instruction prompt")
     parser.add_argument("--status-issue", type=int, help="GitHub issue number for status updates")
+    parser.add_argument("--spec-pr", type=int, help="Metarepo spec PR number (sub-agent labels this PR on completion)")
     parser.add_argument(
         "--session-id",
         help=(
@@ -158,5 +171,6 @@ if __name__ == "__main__":
         dispatch(
             prompt=args.prompt,
             status_issue=args.status_issue,
+            spec_pr=args.spec_pr,
             session_id=args.session_id,
         )
