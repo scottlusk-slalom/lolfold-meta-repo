@@ -1,6 +1,0 @@
-title: Hand replayer display fixes — seats, folded cards, dealer button, card layout
-type: bug
-status: submitted
-quality_gate: standard
-repos:
-  - lolfold-frontend

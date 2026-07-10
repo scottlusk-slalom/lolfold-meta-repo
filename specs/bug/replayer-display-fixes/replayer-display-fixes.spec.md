@@ -1,3 +1,13 @@
+---
+title: Hand replayer display fixes — seats, folded cards, dealer button, card layout
+type: bug
+status: specified
+quality_gate: standard
+created: 2026-07-10
+repos:
+  - lolfold-frontend
+---
+
 # Hand replayer display fixes
 
 Four display bugs in the hand replayer's poker table. All are in
