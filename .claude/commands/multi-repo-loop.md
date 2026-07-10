@@ -2,7 +2,12 @@
 
 Core dispatch loop — execute a master spec across multiple target repos via per-repo execution sub-loops.
 
-**Cloud Mode:** If `$SUBAGENT_RUNTIME_ARN` is set, use `/orchestrate` instead. This command is for local execution only.
+**Cloud dispatch:** The distinguishing signal is `$DISPATCHED_BY_ORCHESTRATOR`, which the dispatch script sets on EVERY sub-agent it launches (the entrypoint exports the payload's `dispatched_by_orchestrator` to this env var). It is set only in dispatched sub-agents, never in a top-level session.
+- If `$SUBAGENT_RUNTIME_ARN` is set AND `$DISPATCHED_BY_ORCHESTRATOR` is UNSET, you are a top-level cloud session — hand off to `/orchestrate`, do not run the loop yourself.
+- If `$DISPATCHED_BY_ORCHESTRATOR` is set, you were dispatched BY the orchestrator as a sub-agent (your prompt names a single `--repos <repo>` and a spec PR to signal) — run the loop for that repo and do NOT defer to `/orchestrate` (that would recurse).
+- Without `$SUBAGENT_RUNTIME_ARN`, this is the local orchestrator — run the loop directly.
+
+Do NOT key this decision off the `--repos` arg shape alone: a human may legitimately run a single-repo `/multi-repo-loop <key> --repos <repo>` at top level in the cloud, which must still hand off to `/orchestrate`. The env marker is the authoritative signal.
 
 ## Usage
 /multi-repo-loop <SPEC_KEY> [--gates <minimal|standard|full>] [--repos <r1,r2>] [--dry-run] [--strict]
@@ -26,9 +31,16 @@ For each selected repo:
 6. `check-mock-violations.sh` — no new test mocks of constrained services (gate)
 7. `/review-impl` — adversarial review (FAIL → retry execute, PASS → continue)
 8. `/submit-pr` — push branch + open PR (retries: 1)
+
+Steps 9-11 write **metarepo-tracked state**:
+
+**Local mode** (no `$SUBAGENT_RUNTIME_ARN`): the loop runs these steps itself:
+
 9. `persist-plan.sh` — copy plan from worktree to tracked `plans/<repo>.plan.md`
 10. `/update-gate <key> executed`
 11. `/update-gate <key> submitted --evidence <pr-url>`
+
+**Cloud dispatched-sub-agent mode** (`$DISPATCHED_BY_ORCHESTRATOR` set): STOP after step 8. The sub-agent adds the `sub-agent-complete` label to the metarepo spec PR (`gh pr edit $SPEC_PR --repo <metarepo> --add-label sub-agent-complete`) and posts one informational comment there linking its companion PR. It does NOT run persist-plan/update-gate — the orchestrator writes gate state on the spec branch. It does NOT push to the metarepo.
 
 ## Gate Levels
 - `minimal`: Stop only on test failures (3 retries). Skip dependency/SAST scans.
@@ -43,7 +55,8 @@ For each selected repo:
 ## Cross-Repo Dependencies
 - Specs declare `depends_on: [repo-name]` in frontmatter
 - Dependent repos run sequentially after upstream PR merges
-- Independent repos may dispatch concurrently
+- Independent repos may run concurrently in LOCAL mode (the loop handles all repos itself)
+- In CLOUD mode the orchestrator serializes dispatch — one sub-agent (one repo) in flight at a time, with a human `pr-review` gate between repos (see `/orchestrate`). A dispatched sub-agent only ever runs ONE repo.
 - This is sequential proof per repo, NOT simultaneous deployment
 
 ## Retry Policy
@@ -55,9 +68,12 @@ For each selected repo:
 | `/submit-pr` | 1 | — |
 
 ## Gate Calls
+**Local mode:** the loop calls `/update-gate` itself:
 - `/update-gate <key> executed` — after successful execution
 - `/update-gate <key> submitted --evidence <pr-url>` — after PR created
 - Add `--force` if gate entry is missing or behind `planned`
+
+**Cloud dispatched-sub-agent mode:** the sub-agent does NOT call `/update-gate`. The orchestrator writes gate state on the spec branch after the sub-agent signals completion via the `sub-agent-complete` label.
 
 ## Tracking
 - Commit: `chore(<key>): loop results — {summary}`
@@ -76,6 +92,9 @@ For each selected repo:
 - `playbooks/<name>.md`
 
 ## Writes
+**Target-repo worktree** (always, all modes): source, tests, commits, the PR.
+
+**Metarepo-tracked** (local mode ONLY — in cloud dispatched-sub-agent mode, the orchestrator writes these on the spec branch instead):
 - `specs/<type>/<key>/sub-specs/<repo-name>.spec.md`
 - `specs/<type>/<key>/status.md`
 - `specs/<type>/<key>/plans/<repo-name>.plan.md`
