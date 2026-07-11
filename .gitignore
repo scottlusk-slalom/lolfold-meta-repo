@@ -3,7 +3,7 @@ repos/
 architecture/legacy/repos/*/
 .discovery/
 org/sources/*/
-specs/**/context/scratch/
+specs/**/scratch/
 .DS_Store
 .idea/
 .vscode/
