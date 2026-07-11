@@ -16,6 +16,7 @@ Control surface: PR #15 labels + comments.
 ## Events
 - 2026-07-11: Kickoff wake. Loaded spec + gate-status (no entry yet). Dup guard clean (no orphan PRs/branches in lolfold-frontend, no orphan metarepo branch besides live spec branch). Labels verified present on metarepo. Authored plan.md. Applying plan-review gate.
 - 2026-07-11: plan-review gate APPLIED on PR #15 — labels [orchestrator-pause, plan-review] added via REST API (gh pr edit failed on GraphQL projectCards deprecation; use `gh api` for label/body ops on this repo). PR body set to review-gate template via REST PATCH. Plan + scratch pushed to spec branch. GOING IDLE — awaiting human Decision on PR #15.
+- 2026-07-11: Kickoff RE-WAKE (harness re-test). Branch was reset (fresh-kickoff commit 2aca9c6) and PR #15 labels/comments cleared → gate was NOT live despite prior history. Reconciled against live PR (source of truth). Re-applied plan-review gate: labels [orchestrator-pause, plan-review] via `gh api` REST, PR body set to review-gate template via REST PATCH. All labels confirmed present on metarepo. GOING IDLE — awaiting human Decision on PR #15.
 
 ## Pending decisions
 - plan-review on PR #15: awaiting `Decision: approved | rejected | changes_requested`.
