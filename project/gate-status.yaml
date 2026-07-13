@@ -2,6 +2,11 @@
 # Updated by /approve and /update-gate commands
 
 specs:
+  replayer-display-fixes:
+    type: bug
+    status: planned
+    approved_at: 2026-07-13
+    path: specs/bug/replayer-display-fixes/
   hand-replayer-ui-enhancements:
     type: feature
     status: archived

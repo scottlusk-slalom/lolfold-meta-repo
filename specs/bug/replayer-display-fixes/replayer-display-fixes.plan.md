@@ -3,6 +3,7 @@ title: Execution plan — Hand replayer display fixes
 spec: replayer-display-fixes
 type: bug
 quality_gate: standard
+status: approved
 ---
 
 # Execution plan — replayer-display-fixes
