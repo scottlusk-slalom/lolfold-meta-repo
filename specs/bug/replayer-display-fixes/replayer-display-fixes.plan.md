@@ -2,6 +2,7 @@
 title: Plan — Hand replayer display fixes
 type: bug
 key: replayer-display-fixes
+status: approved
 quality_gate: standard
 repos:
   - lolfold-frontend
