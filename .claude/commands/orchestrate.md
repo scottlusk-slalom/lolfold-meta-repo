@@ -94,11 +94,11 @@ Pass the same `quality_gate` value to each sub-agent's `/multi-repo-loop ... --g
 
 1. Validate: `<key>.spec.md` exists on the spec branch; every repo it targets exists in `project/project-repositories.yaml`.
 2. `spec-review` gate:
-   - PAUSE required (`full`): commit the spec artifact to the spec branch `spec/<type>/<key>` and push it, swap labels on the spec PR to `orchestrator-pause` + `spec-review`, edit the PR body to the review-gate template (see Gate Protocol — push is required before the PR shows the artifact). Go idle.
+   - PAUSE required (`full`): apply the `spec-review` gate via the full 5-step Pre-Execution Gate procedure (Gate Protocol below): commit → push → add labels → edit PR body → verify labels on the PR → go idle. Do NOT stop after the push — the gate is not applied until the PR carries the labels.
    - skip: proceed.
 3. Advance to `planned` via human approval, not by the orchestrator writing status directly:
    - The plan artifact is `<key>.plan.md` (produced by `/generate-spec`). The orchestrator does NOT dispatch a separate "planning sub-agent" — cross-repo ordering is derived from `depends_on` frontmatter and `project-repositories.yaml`; per-repo impl-plans are produced inside `/multi-repo-loop`.
-   - `plan-review` gate (`standard`/`full`): commit `<key>.plan.md` to the spec branch and push it, swap labels on the spec PR to `orchestrator-pause` + `plan-review`, edit the PR body to the review-gate template. Go idle. On approval (human comments `Decision: approved` on the spec PR), run `/approve <key>`, which sets the spec to `planned` and calls `/update-gate <key> planned`.
+   - `plan-review` gate (`standard`/`full`): apply the `plan-review` gate via the full 5-step Pre-Execution Gate procedure (Gate Protocol below): commit `<key>.plan.md` → push → add `orchestrator-pause` + `plan-review` labels → edit PR body → verify labels on the PR → go idle. Do NOT stop after the push — a committed plan with no PR labels is a half-applied gate the human cannot see. On approval (human comments `Decision: approved` on the spec PR), run `/approve <key>`, which sets the spec to `planned` and calls `/update-gate <key> planned`.
    - `plan-review` skip (`minimal`): run `/approve <key>` to advance to `planned`, then proceed.
 
 ### planned → (dispatch)
@@ -150,11 +150,14 @@ Because dispatch is serialized, exactly one repo is in flight at a time. Each re
 
 ### Pre-Execution Gates (orchestrator-initiated)
 
-For `spec-review` and `plan-review` — no sub-agent companion PR exists yet. The orchestrator mutates the EXISTING metarepo spec PR in place:
+For `spec-review` and `plan-review` — no sub-agent companion PR exists yet. The orchestrator mutates the EXISTING metarepo spec PR in place.
 
-1. Commit the artifact being reviewed (`<key>.spec.md` or `<key>.plan.md`) to the spec branch `spec/<type>/<key>`, then **push it** (`git push origin spec/<type>/<key>`) — the spec PR tracks the remote branch, so an unpushed commit is invisible to reviewers.
-2. Swap labels on the spec PR: add `orchestrator-pause` + gate type (`spec-review` | `plan-review`). Label ops use `gh pr edit <spec_pr> --repo <metarepo> --add-label <l>` / `--remove-label <l>`.
-3. Edit the spec PR body to the review-gate template:
+**A gate is NOT applied until the PR ITSELF is mutated (labels + body). Committing the artifact to the branch is only step 1 of 5 — do NOT stop or go idle after the git push.** These steps are mandatory and ordered; execute ALL of them in the same turn before going idle:
+
+1. **Commit** the artifact being reviewed (`<key>.spec.md` or `<key>.plan.md`) to the spec branch `spec/<type>/<key>`. Stage explicit paths only — `git add <key>.plan.md` (NEVER `git add -A`/`.`, and NEVER add `scratch/` — see Scratch State).
+2. **Push:** `git push origin spec/<type>/<key>` — the spec PR tracks the remote branch, so an unpushed commit is invisible to reviewers.
+3. **Add labels** to the spec PR: `gh pr edit <spec_pr> --repo <metarepo> --add-label orchestrator-pause --add-label <spec-review|plan-review>`. (For a post-execution gate, first `--remove-label sub-agent-complete`.)
+4. **Edit the PR body** to the review-gate template: `gh pr edit <spec_pr> --repo <metarepo> --body "$(cat <<'EOF' … EOF)"` where the body is:
    ```
    ## Status
    <what was done>
@@ -165,11 +168,13 @@ For `spec-review` and `plan-review` — no sub-agent companion PR exists yet. Th
    ## How to Respond
    Comment: Decision: approved | rejected | changes_requested
    ```
-4. Go idle. On approval (human comments `Decision: approved` on the spec PR), `/approve <key>` advances the gate.
+5. **Verify, then go idle.** Run `gh pr view <spec_pr> --repo <metarepo> --json labels` and confirm BOTH labels are present. If they are not, the gate did NOT apply — repeat steps 3–4. Only after the labels are confirmed on the PR do you go idle. A branch commit without the PR labels is a half-applied gate the human cannot see — this is a failure, not an idle state.
+
+On approval (human comments `Decision: approved` on the spec PR), `/approve <key>` advances the gate.
 
 ### Post-Execution Gate (label swap + spec PR body edit)
 
-For `pr-review` (and the optional `spec-complete` close-out): swap `sub-agent-complete` → `orchestrator-pause` + gate label on the metarepo spec PR, edit the spec PR body to the review-gate template linking companion code PR(s), go idle. See `specifics/transport/github-prs.md` for the label taxonomy.
+For `pr-review` (and the optional `spec-complete` close-out): follow the SAME 5-step discipline (any branch commit first, push, then mutate the PR, then verify) — the difference is only the labels. Concretely: `gh pr edit <spec_pr> --repo <metarepo> --remove-label sub-agent-complete --add-label orchestrator-pause --add-label <pr-review|spec-complete>`, edit the spec PR body to the review-gate template linking companion code PR(s), then verify with `gh pr view <spec_pr> --json labels` before going idle. Committing/branch work is never a substitute for the PR mutation. See `specifics/transport/github-prs.md` for the label taxonomy.
 
 ## Resume Flow
 
@@ -186,7 +191,13 @@ On any re-invocation (webhook wake or manual re-run):
 
 ## Scratch State (orchestrator-private)
 
-The orchestrator directly owns metarepo state on the spec branch: `gate-status.yaml` (via `/update-gate`), `status.md` (optional human-facing log, updated at each milestone), and `scratch/orchestrator.md` (cloud bookkeeping). Write `scratch/orchestrator.md` immediately after any significant event (dispatch, wake, gate write, error) — not batched at idle, so a crashed session loses nothing. Record:
+The orchestrator writes two kinds of state — keep them separate:
+
+**Committed to the spec branch** (human-facing / authoritative): `gate-status.yaml` (via `/update-gate`) and, optionally, `status.md`. Stage these by explicit path.
+
+**NEVER committed** — `scratch/orchestrator.md` (private cloud bookkeeping). It is gitignored (`specs/**/scratch/`) and lives only in the orchestrator's persistent workspace (`/mnt/workspace`), which survives across wakes. Do NOT `git add` it, do NOT `git add -f` it, and do NOT use `git add -A`/`git add .` (which would sweep it in). Committing scratch leaks private bookkeeping onto the reviewable spec PR — a bug, not a feature. When committing branch artifacts, always stage explicit paths (e.g. `git add specs/<type>/<key>/<key>.plan.md project/gate-status.yaml`).
+
+Write `scratch/orchestrator.md` immediately after any significant event (dispatch, wake, gate write, error) — not batched at idle, so a crashed session loses nothing. It persists in `/mnt/workspace` between wakes; on resume, read it back from there. Record:
 - Current lifecycle position and which repo in the sequence is active
 - Session IDs of dispatched sub-agents (cloud bookkeeping)
 - Pending decisions and any errors
