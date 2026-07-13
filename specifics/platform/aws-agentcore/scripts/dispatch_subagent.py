@@ -25,6 +25,19 @@ import time
 from pathlib import Path
 
 import boto3
+from botocore.config import Config
+
+# The sub-agent's /invocations endpoint BLOCKS for the entire run (minutes) so
+# AgentCore does not reap the ephemeral container mid-work. botocore's default
+# read timeout is 60s, which would fire mid-run and — with default retries —
+# re-invoke the sub-agent every ~60s, spawning duplicate concurrent runs. Give
+# the invoke a read timeout longer than any realistic run and disable retries:
+# a duplicate dispatch is far worse (conflicting PRs) than a surfaced failure.
+_INVOKE_CONFIG = Config(
+    read_timeout=3600,      # 1h — longer than any sub-agent run
+    connect_timeout=30,
+    retries={"max_attempts": 1, "mode": "standard"},  # 1 attempt, no retries
+)
 
 
 def _pin_session_id(status_issue: int | None) -> str:
@@ -41,7 +54,7 @@ def _pin_session_id(status_issue: int | None) -> str:
 
 def _worker(runtime_arn: str, region: str, payload_json: str, session_id: str):
     """Blocking invoke — runs in the detached child. Never returns to caller."""
-    client = boto3.client("bedrock-agentcore", region_name=region)
+    client = boto3.client("bedrock-agentcore", region_name=region, config=_INVOKE_CONFIG)
     try:
         client.invoke_agent_runtime(
             agentRuntimeArn=runtime_arn,
