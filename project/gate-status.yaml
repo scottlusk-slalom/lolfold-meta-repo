@@ -10,3 +10,8 @@ specs:
     archived_at: 2026-07-01
     evidence: https://github.com/scottlusk-slalom/lolfold-frontend/pull/14
     path: specs/archive/hand-replayer-ui-enhancements/
+  replayer-display-fixes-v3:
+    type: bug
+    status: planned
+    approved_at: 2026-07-14
+    path: specs/bug/replayer-display-fixes-v3/
