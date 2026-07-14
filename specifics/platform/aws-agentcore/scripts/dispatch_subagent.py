@@ -2,16 +2,19 @@
 Fire-and-forget sub-agent dispatch via AgentCore Runtime.
 
 Called by the orchestrator to start a sub-agent in its own AgentCore
-session. `invoke_agent_runtime` is SYNCHRONOUS — it blocks until the
-sub-agent finishes streaming its full response (minutes for a real task).
-The orchestrator invokes this script through a Bash tool that has a short
-timeout, so a blocking call would be killed mid-flight and the sub-agent
-would never receive its payload.
+session. The sub-agent's /invocations handler returns HTTP 202 immediately
+and runs the actual work in a detached background task (it must NOT block —
+AgentCore cancels an in-flight invocation request ~10s in, which would kill
+an inline-awaited run; see docker/src/agent.py). So `invoke_agent_runtime`
+here returns in milliseconds, not minutes. The sub-agent signals completion
+out-of-band by adding the `sub-agent-complete` label to the metarepo spec PR
+— the invoke return value is NOT the completion signal.
 
-To make dispatch truly fire-and-forget, the parent process pins a session
-ID, spawns a fully detached worker (new session, no controlling terminal)
-that performs the blocking invoke, then returns immediately. The worker's
-output goes to a log file under the workspace for post-hoc inspection.
+The parent still pins a session ID and spawns a detached worker to perform
+the invoke. This is now defence-in-depth rather than a hard requirement (the
+call is fast): it keeps dispatch non-blocking even if AgentCore is slow to
+accept the connection, and the worker's stdout/stderr go to a log file under
+the workspace for post-hoc inspection.
 
 Requires SUBAGENT_RUNTIME_ARN environment variable.
 """
@@ -27,14 +30,16 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-# The sub-agent's /invocations endpoint BLOCKS for the entire run (minutes) so
-# AgentCore does not reap the ephemeral container mid-work. botocore's default
-# read timeout is 60s, which would fire mid-run and — with default retries —
-# re-invoke the sub-agent every ~60s, spawning duplicate concurrent runs. Give
-# the invoke a read timeout longer than any realistic run and disable retries:
-# a duplicate dispatch is far worse (conflicting PRs) than a surfaced failure.
+# The sub-agent's /invocations handler now returns 202 in milliseconds (work
+# runs detached — see docker/src/agent.py), so a long read timeout is no longer
+# required to "hold the run open". We keep a generous read timeout as a cushion
+# against a slow accept, and disable retries: a duplicate dispatch is far worse
+# (conflicting PRs / concurrent runs) than a single surfaced failure.
 _INVOKE_CONFIG = Config(
-    read_timeout=3600,      # 1h — longer than any sub-agent run
+    read_timeout=300,       # cushion for cold start (image pull + git-auth
+                            # module load hits Secrets Manager + GitHub); the
+                            # 202 itself returns fast, but the FIRST accept on a
+                            # cold ephemeral container can take >120s
     connect_timeout=30,
     retries={"max_attempts": 1, "mode": "standard"},  # 1 attempt, no retries
 )
