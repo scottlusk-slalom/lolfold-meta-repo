@@ -37,7 +37,7 @@ The orchestrator NEVER inlines a per-repo work prompt. The entire sub-agent inst
 Coordination is centralized on the spec's **metarepo spec PR** (`spec/<type>/<key>` branch) — target repos have no webhooks. A GitHub webhook (`pull_request` / `pull_request_review_comment` / `issue_comment` on the metarepo) wakes you in three cases:
 - **Kickoff:** a human creates branch `spec/<type>/<key>`, adds the spec, pushes, opens the metarepo spec PR. The PR IS the control surface.
 - **Sub-agent handoff:** a sub-agent adds the `sub-agent-complete` label to the metarepo spec PR (via `gh pr edit`). On this wake, verify the sub-agent's companion code PR and advance.
-- **Human decision:** a human comments `Decision: merge|hold|rollback` on the metarepo spec PR.
+- **Human decision:** a human comments on the metarepo spec PR while it is paused. **Interpret their intent** — do not require rigid phrasing. A comment like "approved", "lgtm ship it", "hold off", or "roll this back" is a decision; map it to the gate's action (approve/proceed, hold, reject, request-changes, merge, rollback). The `Decision: <verb>` format is a suggested convention that makes intent unambiguous, NOT a requirement. If a comment carries no actionable decision (a question, a remark), reply if useful and go back idle without advancing.
 
 **The status issue is OPTIONAL** — an informational log for milestones only. Default: do NOT create one. All control happens on the spec PR (labels = state, comments = human decisions, merge to `main` = archived).
 
@@ -136,7 +136,7 @@ Because dispatch is serialized, exactly one repo is in flight at a time. Each re
 2. `pr-review` gate (always PAUSE at every level):
    - Swap labels on the metarepo spec PR: remove `sub-agent-complete`, add `orchestrator-pause` + `pr-review`.
    - Edit the spec PR body to the review-gate template, linking THIS repo's companion code PR and stating how to respond. Go idle.
-     > "Review the companion PR linked above, then comment here: `Decision: merge` | `Decision: hold` | `Decision: rollback`."
+     > "Review the companion PR linked above, then comment your decision here (e.g. `Decision: merge` | `Decision: hold` | `Decision: rollback`, or just say it in your own words — I'll interpret)."
 3. On the **human-decision wake**: `gh pr view <spec_pr> --repo <metarepo> --json comments`; confirm the commenter is human (login not ending `[bot]`). Parse:
    - `Decision: merge` → `gh pr merge <pr_url> --squash --delete-branch` this repo's companion code PR; set its scratch status to `merged`. Remove `orchestrator-pause` + `pr-review` from the spec PR (`gh pr edit <spec_pr> --repo <metarepo> --remove-label orchestrator-pause --remove-label pr-review`). Then:
      - **If more repos remain** (any scratch status not `merged`): the `sub-agent-complete` label was already removed when the `pr-review` gate was applied (step 2), so the spec PR now carries none of these labels — the next repo's sub-agent adding `sub-agent-complete` will fire a fresh `labeled` webhook event. Dispatch the next repo (back to `planned → dispatch`). Go idle.
@@ -166,11 +166,11 @@ For `spec-review` and `plan-review` — no sub-agent companion PR exists yet. Th
    ## Context
    <links, what happens after response>
    ## How to Respond
-   Comment: Decision: approved | rejected | changes_requested
+   Comment your decision below. Suggested format: `Decision: approved | rejected | changes_requested` — but plain language is fine; I interpret intent.
    ```
 5. **Verify, then go idle.** Run `gh pr view <spec_pr> --repo <metarepo> --json labels` and confirm BOTH labels are present. If they are not, the gate did NOT apply — repeat steps 3–4. Only after the labels are confirmed on the PR do you go idle. A branch commit without the PR labels is a half-applied gate the human cannot see — this is a failure, not an idle state.
 
-On approval (human comments `Decision: approved` on the spec PR), `/approve <key>` advances the gate.
+On approval (a human comment approving the spec — however phrased), `/approve <key>` advances the gate.
 
 ### Post-Execution Gate (label swap + spec PR body edit)
 
@@ -185,7 +185,7 @@ On any re-invocation (webhook wake or manual re-run):
 1b. **Detect orphaned dispatch.** If `scratch/orchestrator.md` records a dispatched session for the active repo but the spec PR has NO `sub-agent-complete` label (and no informational comment from the sub-agent), the sub-agent died before reporting. Run the duplicate guard (close any orphan branch/PR on the target repo per Rule 4), clear that session ID from scratch, and re-dispatch — do NOT re-dispatch without clearing, or you create duplicate PRs.
 2. Determine wake reason:
    - **Sub-agent handoff** (`sub-agent-complete` label added to spec PR) → run `submitted → archived` step 1 (verify companion code PR, apply `pr-review`).
-   - **Human decision** (`Decision:` comment on spec PR, human author) → run `submitted → archived` step 3.
+   - **Human decision** (any human comment on the paused spec PR — interpret intent, no rigid phrasing) → run `submitted → archived` step 3.
    - **Kickoff** (spec PR opened on branch `spec/<type>/<key>`) → run from the current gate state.
 3. If woken with no actionable signal (no label, no human decision): report the current state and go idle.
 
@@ -206,6 +206,6 @@ Write `scratch/orchestrator.md` immediately after any significant event (dispatc
 
 - **Dispatch failure:** document in `scratch/orchestrator.md`, close any orphan PR, do not advance the gate.
 - **Loop halt reported by sub-agent:** HALT, post summary to spec PR, go idle. Do not advance.
-- **Ambiguous gate comment:** reply on the spec PR requesting a structured `Decision:`; do not proceed.
+- **Genuinely ambiguous gate comment:** if you cannot confidently determine intent, reply on the spec PR asking the human to clarify (optionally suggesting the `Decision: <verb>` format); do not proceed. Reserve this for real ambiguity — do not bounce a clearly-intended decision just because it lacks the `Decision:` prefix.
 - **Repo not in registry:** halt and report. Do not guess.
 - **`$SUBAGENT_RUNTIME_ARN` unset:** halt; instruct the user to run `/multi-repo-loop <key>` locally instead.

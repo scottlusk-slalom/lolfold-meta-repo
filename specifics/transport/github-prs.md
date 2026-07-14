@@ -74,7 +74,7 @@ When the protocol says "check for pending review gates with human responses":
 1. **Find open gates**: `gh pr list --label orchestrator-pause --state open` (searches metarepo by default).
 2. **Read comments**: `gh pr view <number> --comments`
 3. **Verify human author**: `gh pr view <number> --json comments --jq '.comments[].author.login'`. If login ends with `[bot]`, skip that comment — gate is NOT satisfied. Continue waiting.
-4. **Parse the response**: Read the comment for the structured `Decision:` field (see schemas below).
+4. **Interpret intent**: Read the comment and determine the human's decision by reasoning about intent — the `Decision: <verb>` schemas below are a suggested convention, not a required format. "approved", "lgtm", "ship it", "hold", "roll it back" all map to a decision. If no actionable decision is present, do not advance the gate.
 5. **Act on the decision**: Execute the corresponding action (proceed, reject, hold, etc.).
 6. **Close the gate** (mandatory): Use `gh pr close` for rejected specs or `gh pr merge` to archive approved specs. After merging or closing, delete the remote branch (`--delete-branch`).
 
@@ -134,7 +134,9 @@ There is NO separate orchestrator close-out branch. Merging the spec PR to `main
 
 Before creating a branch, check if it exists (`git ls-remote --heads origin '<branch>'`). If collision, append `-v2`. After merging or closing a PR, delete the remote branch (`--delete-branch`).
 
-## Structured Comment Schemas
+## Suggested Comment Formats
+
+These `Decision: <verb>` formats are a **suggested convention** offered to humans in gate PR bodies — they make intent unambiguous and trivial to act on. They are **NOT required**: the orchestrator interprets free-form comments by intent (see Event: Approval). Reviewers may use them or just say what they want in plain language.
 
 ### Spec Review Response
 ```
@@ -175,9 +177,9 @@ Three wake events, all native GitHub events on the metarepo spec PR:
 
 1. **Kickoff**: The metarepo spec PR is opened or labelled.
 2. **Sub-agent handoff**: A sub-agent, on completion, adds the `sub-agent-complete` label (and an informational comment) to the metarepo spec PR via `gh` — a label/comment mutation, never a git branch push.
-3. **Human decision**: A human comments a structured `Decision:` on the spec PR.
+3. **Human decision**: A human comments on the spec PR while it is paused (carries `orchestrator-pause`). The orchestrator interprets the comment's intent — no rigid `Decision:` phrasing required.
 
-The webhook handler (`specifics/platform/aws-agentcore/scripts/webhook-handler/`) filters for these events and invokes the orchestrator's AgentCore runtime. GitHub `issue_comment` events fire for BOTH issues and PRs, so the handler must ignore any `issue_comment` whose payload `issue` object lacks a `pull_request` field, or whose body has no `Decision:` line — otherwise unrelated metarepo issue comments would spuriously wake the orchestrator.
+The webhook handler (`specifics/platform/aws-agentcore/scripts/webhook-handler/`) filters for these events and invokes the orchestrator's AgentCore runtime. GitHub `issue_comment` events fire for BOTH issues and PRs, so the handler wakes the orchestrator ONLY when: the `issue` has a `pull_request` field, the PR carries the `orchestrator-pause` label (actively awaiting a decision), and the author is human (non-`[bot]`). It does NOT gate on comment text — interpreting intent is the orchestrator LLM's job. This keeps spurious wakes out (idle chatter, unrelated issues, bot comments) while accepting decisions in any phrasing.
 
 **Local mode:** No webhooks. The orchestrator blocks on stdin or polls for comment updates (implementation TBD per `agent-runtime-local.md`).
 
