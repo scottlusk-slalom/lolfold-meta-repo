@@ -1,3 +1,7 @@
+---
+status: approved
+---
+
 # Execution Plan — Hand replayer display fixes (v2)
 
 Spec: `replayer-display-fixes-v2` (type: bug, quality_gate: standard)

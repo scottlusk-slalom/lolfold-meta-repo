@@ -1,7 +1,7 @@
 ---
 title: Hand replayer display fixes — seats, folded cards, dealer button, card layout
 type: bug
-status: specified
+status: planned
 quality_gate: standard
 created: 2026-07-10
 repos:
