@@ -20,17 +20,41 @@ Orchestrator dispatches one sub-agent per target repo. Each sub-agent runs `/mul
 
 Lifecycle states: `specified → planned → executed → submitted → archived`
 
-PR label taxonomy:
+PR label taxonomy. All labels live in the `spec:` namespace. Two orthogonal axes coexist on the PR:
 
-| Lifecycle State | PR Label | Meaning |
+**Axis 1 — pause flag** (is the orchestrator waiting on a human?):
+
+| Label | Meaning |
+|---|---|
+| `spec:blocked` | Generic pause state — the orchestrator is idle awaiting a human decision. ALWAYS paired with a specific gate-type label below. (Replaces the former `orchestrator-pause`.) |
+
+**Axis 2 — gate type** (which gate is open, when paused):
+
+| Label | Gate point | Meaning |
 |---|---|---|
-| `specified` | `spec-review` | Spec written, awaiting human approval to proceed |
-| `planned` | `plan-review` | Execution plan ready, awaiting human approval to execute |
-| `executed` | `sub-agent-complete` | Work complete in code repos, not yet submitted |
-| `submitted` | `pr-review` | Companion PRs merged, awaiting final archive approval |
-| `archived` | (no label) | Metarepo spec PR merged to `main` |
-| N/A | `orchestrator-pause` | Generic pause state (always paired with a specific gate label) |
-| N/A | `spec-complete` | All work done, summary for human (full gate only) |
+| `spec:review` | pre-execution | Spec artifact written, awaiting human approval to plan |
+| `spec:planning` | pre-execution | Execution plan ready, awaiting human approval to execute |
+| `spec:pr-review` | post-execution | A repo's companion PR is open, awaiting merge decision |
+| `spec:complete` | close-out (full gate only) | All work done, awaiting final archive approval |
+
+**Signals & transient states** (not pause gates):
+
+| Label | Meaning |
+|---|---|
+| `spec:kickoff` | Orchestrator woke and is reloading state; cleared once it applies the correct status/gate label |
+| `spec:executed` | Handoff signal — a sub-agent finished work in a code repo (adds this to the spec PR). Wakes the orchestrator. (Replaces the former `sub-agent-complete`.) |
+| `spec:error` | Unrecoverable halt (dispatch failure, sub-agent halt, exhausted retries) — human triage required |
+
+**Lifecycle-status labels** (current gate state, applied by the orchestrator in State Assessment — see `/orchestrate`):
+
+| Lifecycle State | Label |
+|---|---|
+| `specified` | `spec:specified` |
+| `planned` | `spec:planned` |
+| `submitted` | `spec:submitted` |
+| `archived` | (no label — the spec PR is merged to `main`) |
+
+> **Cloud wake contract.** The webhook handler (`ae-harness-infra` → `lambda/webhook.py`) hardcodes two of these as constants: `SUBAGENT_COMPLETE_LABEL = "spec:executed"` (handoff wake) and `PAUSE_LABEL = "spec:blocked"` (human-decision wake). Renaming either label here REQUIRES a matching change in the infra template and a redeploy of every instance, or wakes silently break.
 
 ## Event: Review Gate (PAUSE)
 
@@ -41,11 +65,11 @@ The orchestrator NEVER opens a new PR or branch for a gate. It commits any gate 
 Steps:
 
 1. Commit gate artifact (plan, summary, etc.) to the `spec/<type>/<key>` branch if needed.
-2. Swap labels: remove `sub-agent-complete` (if present), add `orchestrator-pause` + the specific gate-type label:
-   - `spec-review` — spec written, awaiting approval
-   - `plan-review` — execution plan ready, awaiting approval
-   - `pr-review` — companion PRs submitted, awaiting merge decision
-   - `spec-complete` — all work done, awaiting archive approval (full gate only)
+2. Swap labels: remove `spec:executed` (if present), add `spec:blocked` + the specific gate-type label:
+   - `spec:review` — spec written, awaiting approval
+   - `spec:planning` — execution plan ready, awaiting approval
+   - `spec:pr-review` — companion PR open, awaiting merge decision
+   - `spec:complete` — all work done, awaiting archive approval (full gate only)
 3. Edit the PR body to the review-gate template (below).
 4. Go idle. Wait for human comment.
 
@@ -71,7 +95,7 @@ Comment on this PR with your Decision. The orchestrator will resume automaticall
 
 When the protocol says "check for pending review gates with human responses":
 
-1. **Find open gates**: `gh pr list --label orchestrator-pause --state open` (searches metarepo by default).
+1. **Find open gates**: `gh pr list --label spec:blocked --state open` (searches metarepo by default).
 2. **Read comments**: `gh pr view <number> --comments`
 3. **Verify human author**: `gh pr view <number> --json comments --jq '.comments[].author.login'`. If login ends with `[bot]`, skip that comment — gate is NOT satisfied. Continue waiting.
 4. **Interpret intent**: Read the comment and determine the human's decision by reasoning about intent — the `Decision: <verb>` schemas below are a suggested convention, not a required format. "approved", "lgtm", "ship it", "hold", "roll it back" all map to a decision. If no actionable decision is present, do not advance the gate.
@@ -82,11 +106,11 @@ When the protocol says "check for pending review gates with human responses":
 
 When a sub-agent finishes work in a code repo:
 
-- Sub-agent adds the `sub-agent-complete` label to the metarepo spec PR via `gh pr edit <number> --add-label sub-agent-complete` — a label/comment MUTATION, NEVER a git branch push.
+- Sub-agent adds the `spec:executed` label to the metarepo spec PR via `gh pr edit <number> --add-label spec:executed` — a label/comment MUTATION, NEVER a git branch push.
 - Sub-agent adds an informational comment to the spec PR summarizing completion status and linking the companion code PR.
 - The webhook (cloud) or orchestrator (local) picks up from there.
 
-**Serialized dispatch (cloud).** The orchestrator dispatches ONE sub-agent (one repo) at a time and clears the `sub-agent-complete` label after handling each repo before dispatching the next. This keeps the single label unambiguous — only one sub-agent can add it at a time — and avoids the concurrent-label webhook problem (GitHub does not re-fire a `pull_request` labeled event when a label is already present, and a shared label carries no per-repo identity). One repo in flight per spec; see `/orchestrate` State Assessment.
+**Serialized dispatch (cloud).** The orchestrator dispatches ONE sub-agent (one repo) at a time and clears the `spec:executed` label after handling each repo before dispatching the next. This keeps the single label unambiguous — only one sub-agent can add it at a time — and avoids the concurrent-label webhook problem (GitHub does not re-fire a `pull_request` labeled event when a label is already present, and a shared label carries no per-repo identity). One repo in flight per spec; see `/orchestrate` State Assessment.
 
 ## Event: Status Update
 
@@ -176,10 +200,10 @@ Webhooks fire on the METAREPO ONLY. Code repos carry no webhooks and stay "dumb"
 Three wake events, all native GitHub events on the metarepo spec PR:
 
 1. **Kickoff**: The metarepo spec PR is opened or labelled.
-2. **Sub-agent handoff**: A sub-agent, on completion, adds the `sub-agent-complete` label (and an informational comment) to the metarepo spec PR via `gh` — a label/comment mutation, never a git branch push.
-3. **Human decision**: A human comments on the spec PR while it is paused (carries `orchestrator-pause`). The orchestrator interprets the comment's intent — no rigid `Decision:` phrasing required.
+2. **Sub-agent handoff**: A sub-agent, on completion, adds the `spec:executed` label (and an informational comment) to the metarepo spec PR via `gh` — a label/comment mutation, never a git branch push.
+3. **Human decision**: A human comments on the spec PR while it is paused (carries `spec:blocked`). The orchestrator interprets the comment's intent — no rigid `Decision:` phrasing required.
 
-The webhook handler (`specifics/platform/aws-agentcore/scripts/webhook-handler/`) filters for these events and invokes the orchestrator's AgentCore runtime. GitHub `issue_comment` events fire for BOTH issues and PRs, so the handler wakes the orchestrator ONLY when: the `issue` has a `pull_request` field, the PR carries the `orchestrator-pause` label (actively awaiting a decision), and the author is human (non-`[bot]`). It does NOT gate on comment text — interpreting intent is the orchestrator LLM's job. This keeps spurious wakes out (idle chatter, unrelated issues, bot comments) while accepting decisions in any phrasing.
+The webhook handler (`ae-harness-infra` → `lambda/webhook.py`) filters for these events and invokes the orchestrator's AgentCore runtime. GitHub `issue_comment` events fire for BOTH issues and PRs, so the handler wakes the orchestrator ONLY when: the `issue` has a `pull_request` field, the PR carries the `spec:blocked` label (actively awaiting a decision), and the author is human (non-`[bot]`). It does NOT gate on comment text — interpreting intent is the orchestrator LLM's job. This keeps spurious wakes out (idle chatter, unrelated issues, bot comments) while accepting decisions in any phrasing.
 
 **Local mode:** No webhooks. The orchestrator blocks on stdin or polls for comment updates (implementation TBD per `agent-runtime-local.md`).
 
@@ -188,7 +212,7 @@ The webhook handler (`specifics/platform/aws-agentcore/scripts/webhook-handler/`
 **Spec Review:**
 ```
 Title: Spec review: Add OAuth integration
-Labels: orchestrator-pause, spec-review
+Labels: spec:blocked, spec:review
 
 ## Status
 Spec drafted for OAuth 2.0 integration with Google + GitHub providers.
@@ -209,7 +233,7 @@ Comment on this PR with your Decision. The orchestrator will resume automaticall
 **PR Review (per repo — serialized dispatch fires one of these per repo):**
 ```
 Title: PR review: OAuth integration — api
-Labels: orchestrator-pause, pr-review
+Labels: spec:blocked, spec:pr-review
 
 ## Status
 Repo `api` complete (repo 1 of 2 for this spec). Its companion PR is open and ready for review.

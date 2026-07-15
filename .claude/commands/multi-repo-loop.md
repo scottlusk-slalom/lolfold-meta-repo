@@ -40,7 +40,7 @@ Steps 9-11 write **metarepo-tracked state**:
 10. `/update-gate <key> executed`
 11. `/update-gate <key> submitted --evidence <pr-url>`
 
-**Cloud dispatched-sub-agent mode** (`$DISPATCHED_BY_ORCHESTRATOR` set): STOP after step 8. The sub-agent adds the `sub-agent-complete` label to the metarepo spec PR (`gh pr edit $SPEC_PR --repo <metarepo> --add-label sub-agent-complete`) and posts one informational comment there linking its companion PR. It does NOT run persist-plan/update-gate — the orchestrator writes gate state on the spec branch. It does NOT push to the metarepo.
+**Cloud dispatched-sub-agent mode** (`$DISPATCHED_BY_ORCHESTRATOR` set): STOP after step 8. The sub-agent adds the `spec:executed` label to the metarepo spec PR (`gh pr edit $SPEC_PR --repo <metarepo> --add-label spec:executed`) and posts one informational comment there linking its companion PR. It does NOT run persist-plan/update-gate — the orchestrator writes gate state on the spec branch. It does NOT push to the metarepo.
 
 ## Gate Levels
 - `minimal`: Stop only on test failures (3 retries). Skip dependency/SAST scans.
@@ -56,7 +56,7 @@ Steps 9-11 write **metarepo-tracked state**:
 - Specs declare `depends_on: [repo-name]` in frontmatter
 - Dependent repos run sequentially after upstream PR merges
 - Independent repos may run concurrently in LOCAL mode (the loop handles all repos itself)
-- In CLOUD mode the orchestrator serializes dispatch — one sub-agent (one repo) in flight at a time, with a human `pr-review` gate between repos (see `/orchestrate`). A dispatched sub-agent only ever runs ONE repo.
+- In CLOUD mode the orchestrator serializes dispatch — one sub-agent (one repo) in flight at a time, with a human `spec:review` gate between repos (see `/orchestrate`). A dispatched sub-agent only ever runs ONE repo.
 - This is sequential proof per repo, NOT simultaneous deployment
 
 ## Retry Policy
@@ -73,7 +73,20 @@ Steps 9-11 write **metarepo-tracked state**:
 - `/update-gate <key> submitted --evidence <pr-url>` — after PR created
 - Add `--force` if gate entry is missing or behind `planned`
 
-**Cloud dispatched-sub-agent mode:** the sub-agent does NOT call `/update-gate`. The orchestrator writes gate state on the spec branch after the sub-agent signals completion via the `sub-agent-complete` label.
+**Cloud dispatched-sub-agent mode:** the sub-agent does NOT call `/update-gate`. The orchestrator writes gate state on the spec branch after the sub-agent signals completion via the `spec:executed` label.
+
+## Spec PR Label Updates
+When `$SPEC_PR` is set, apply these labels at key moments (replace-all pattern — remove existing gate labels before adding). Use `$LABEL_PREFIX` (default: `spec`):
+
+| Moment | Label |
+|---|---|
+| Loop starts (before first repo) | `$LABEL_PREFIX:executed` |
+| Awaiting human decision (`spec:blocked` applied) | `$LABEL_PREFIX:blocked` |
+| Unrecoverable halt (exhausted retries, unexpected error) | `$LABEL_PREFIX:error` |
+
+`/update-gate` writes only `gate-status.yaml` — it does NOT touch PR labels. The lifecycle-status label matching the current gate state (`spec:specified` / `spec:planned` / `spec:submitted`; `executed` has none, `archived` merges the PR) is applied by the **orchestrator** at the start of each wake (see `/orchestrate` → State Assessment), not by this loop and not by `/update-gate`. The moments in the table above are the ONLY labels this loop sets directly.
+
+Skip silently if `$SPEC_PR` is unset. Never block loop execution if a label update fails.
 
 ## Tracking
 - Commit: `chore(<key>): loop results — {summary}`
