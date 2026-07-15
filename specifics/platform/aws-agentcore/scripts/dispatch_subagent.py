@@ -7,7 +7,7 @@ and runs the actual work in a detached background task (it must NOT block —
 AgentCore cancels an in-flight invocation request ~10s in, which would kill
 an inline-awaited run; see docker/src/agent.py). So `invoke_agent_runtime`
 here returns in milliseconds, not minutes. The sub-agent signals completion
-out-of-band by adding the `sub-agent-complete` label to the metarepo spec PR
+out-of-band by adding the `spec:executed` label to the metarepo spec PR
 — the invoke return value is NOT the completion signal.
 
 The parent still pins a session ID and spawns a detached worker to perform

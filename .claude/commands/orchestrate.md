@@ -30,7 +30,7 @@ The orchestrator NEVER inlines a per-repo work prompt. The entire sub-agent inst
 4. **Check for duplicate dispatches before dispatching.** Search target repos for existing open PRs and orphan `agent/<type>/<key>` branches from prior attempts; close orphans and delete branches before re-dispatching. The metarepo `spec/<type>/<key>` branch is the LIVE control-surface branch created at kickoff — it is NOT an orphan and must never be deleted. Only treat a metarepo branch as an orphan if it exists with NO open spec PR (a dead prior attempt).
 5. **Zero commits to the metarepo default branch (`main`) until spec is archived.** The orchestrator writes only to the spec branch `spec/<type>/<key>`. Sub-agents mutate target repos on their own `agent/<type>/<key>` branches.
 6. **Dispatch only via the cloud mechanism.** `$SUBAGENT_RUNTIME_ARN` MUST be set (this is a cloud-only command). Dispatch with `python specifics/platform/aws-agentcore/scripts/dispatch_subagent.py`. If the var is unset, halt and tell the user to run `/multi-repo-loop` locally.
-7. **Ensure labels exist on the repo you're labelling.** PR labels (`spec:blocked`, `spec:review`, `spec:executed`) must exist on the metarepo for the spec PR. Before applying: `gh label list --repo <metarepo> --search <label>`; if missing, `gh label create <label> --repo <metarepo> --color <hex> --description <desc>`.
+7. **Ensure labels exist on the repo you're labelling.** PR labels (`spec:kickoff`, `spec:blocked`, `spec:review`, `spec:planning`, `spec:pr-review`, `spec:complete`, `spec:executed`, `spec:error`) must exist on the metarepo for the spec PR. Before applying: `gh label list --repo <metarepo> --search <label>`; if missing, `gh label create <label> --repo <metarepo> --color <hex> --description <desc>`. The full taxonomy (with meanings) is in `specifics/transport/github-prs.md`.
 
 ## Wake Model
 
@@ -65,12 +65,13 @@ On every invocation, read in order:
 
 ## State Assessment
 
-The authoritative lifecycle state is the spec's `status` under `specs:` in `project/gate-status.yaml` for `<key>` (fall back to the spec frontmatter `status` if no gate entry yet). Before acting, remove `spec:kickoff` and apply the matching `spec:*` label for the current state (replace-all). Act on it:
+The authoritative lifecycle state is the spec's `status` under `specs:` in `project/gate-status.yaml` for `<key>` (fall back to the spec frontmatter `status` if no gate entry yet). Before acting, remove `spec:kickoff` and apply the matching lifecycle-status label for the current state (replace-all): `specified`→`spec:specified`, `planned`→`spec:planned`, `submitted`→`spec:submitted`, `archived`→(none, PR is merged). **The `executed` state has NO lifecycle label** — do NOT apply `spec:executed` as a status label; that label is reserved exclusively as the sub-agent handoff signal (see taxonomy in `specifics/transport/github-prs.md`). Act on it:
 
 | Status | Action |
 |--------|--------|
 | `specified` | Handle `spec:review` gate; wait for `/approve` (advances to `planned`). |
-| `planned` | **Serialize per repo.** Dispatch the NEXT un-dispatched repo (see repo sequence in `scratch/orchestrator.md`) — one sub-agent, one repo, at a time. It runs `/multi-repo-loop --repos <repo> --gates <quality_gate>` WHOLE, opens a code-repo companion PR on `agent/<type>/<key>`, and signals by adding `spec:executed` to the spec PR. Handle its `spec:review` gate and merge before dispatching the next repo. The spec-level gate stays `planned` throughout; per-repo progress lives in `scratch/orchestrator.md`. |
+| `planned` | **Serialize per repo.** Dispatch the NEXT un-dispatched repo (see repo sequence in `scratch/orchestrator.md`) — one sub-agent, one repo, at a time. It runs `/multi-repo-loop --repos <repo> --gates <quality_gate>` WHOLE, opens a code-repo companion PR on `agent/<type>/<key>`, and signals by adding `spec:executed` to the spec PR. Handle its `spec:pr-review` gate and merge before dispatching the next repo. The spec-level gate stays `planned` throughout; per-repo progress lives in `scratch/orchestrator.md`. |
+| `executed` | Transient state — reached only in the back-to-back window between `/update-gate <key> executed` and `/update-gate <key> submitted` (all companion PRs already merged). If reloaded here after a crash, do NOT apply a status label; advance immediately: `/update-gate <key> submitted --evidence <last_pr_url>`, then proceed per `submitted`. |
 | `submitted` | Only reached after the LAST repo's companion PR is merged (all repos done). Archive: merge the spec PR to `main`. |
 | `archived` | Nothing to do. Report complete. |
 
@@ -86,7 +87,7 @@ Read `quality_gate` from the spec frontmatter (default: `standard`). This single
 |------|-----------|------------|--------|
 | `spec:review` — spec artifact (human) | skip | skip | PAUSE |
 | `spec:planning` — plan artifact (human) | skip | PAUSE | PAUSE |
-| `spec:review` — PR review (human) | PAUSE | PAUSE | PAUSE |
+| `spec:pr-review` — companion PR review (human) | PAUSE | PAUSE | PAUSE |
 | `spec:complete` — close-out (human) | skip | skip | PAUSE |
 | loop `--gates` (technical) | `minimal` | `standard` | `full` |
 
@@ -133,19 +134,19 @@ The orchestrator — NOT the sub-agent — records gate transitions, and only ON
 
 ### per-repo handoff + human gate (serialized), then submitted → archived
 
-Because dispatch is serialized, exactly one repo is in flight at a time. Each repo cycles handoff → `spec:review` gate → merge before the next repo dispatches. The spec-level gate stays `planned` until the LAST repo merges.
+Because dispatch is serialized, exactly one repo is in flight at a time. Each repo cycles handoff → `spec:pr-review` gate → merge before the next repo dispatches. The spec-level gate stays `planned` until the LAST repo merges.
 
 1. On a **handoff wake** (the sole `spec:executed` label appears on the spec PR): read the sub-agent's informational comment linking its companion code PR. Because only one sub-agent is ever in flight, the wake is unambiguous — it is for the repo whose scratch status is `dispatched`.
    - Verify the companion code PR exists (`gh pr view <pr_url>`). If it does not exist: **HALT.** Post a failure summary to the spec PR, record it in `scratch/orchestrator.md`, go idle. Do not advance.
-   - If it exists: set this repo's scratch status to `pr-open`. Do NOT write the spec-level gate here. Apply the `spec:review` gate for this repo.
-2. `spec:review` gate (always PAUSE at every level) — execute ALL steps before going idle:
-   - **Swap labels:** `gh pr edit <spec_pr> --repo <metarepo> --remove-label spec:executed --remove-label spec:planning --add-label spec:blocked --add-label spec:review`
+   - If it exists: set this repo's scratch status to `pr-open`. Do NOT write the spec-level gate here. Apply the `spec:pr-review` gate for this repo.
+2. `spec:pr-review` gate (always PAUSE at every level) — execute ALL steps before going idle:
+   - **Swap labels:** `gh pr edit <spec_pr> --repo <metarepo> --remove-label spec:executed --remove-label spec:planning --add-label spec:blocked --add-label spec:pr-review`
    - **Post a comment** (mandatory — labels without context leave humans with no explanation): `gh pr comment <spec_pr> --repo <metarepo> --body "$(cat <<'EOF'\n## Waiting for Review\nSub-agent completed work on \`<repo>\`. Companion PR ready for review.\n\n**Companion PR:** <pr_url>\n\nReview the companion PR above, then comment your decision here: \`Decision: merge\` | \`Decision: hold\` | \`Decision: rollback\` — or plain language, I'll interpret.\nEOF\n)"`
-   - **Verify:** `gh pr view <spec_pr> --repo <metarepo> --json labels` — confirm both `spec:blocked` and `spec:review` are present. If not, repeat the label step.
+   - **Verify:** `gh pr view <spec_pr> --repo <metarepo> --json labels` — confirm both `spec:blocked` and `spec:pr-review` are present. If not, repeat the label step.
    - Go idle.
 3. On the **human-decision wake**: `gh pr view <spec_pr> --repo <metarepo> --json comments`; confirm the commenter is human (login not ending `[bot]`). Parse:
-   - `Decision: merge` → `gh pr merge <pr_url> --squash --delete-branch` this repo's companion code PR; set its scratch status to `merged`. Remove `spec:blocked` + `spec:review` from the spec PR (`gh pr edit <spec_pr> --repo <metarepo> --remove-label spec:blocked --remove-label spec:review`). Then:
-     - **If more repos remain** (any scratch status not `merged`): the `spec:executed` label was already removed when the `spec:review` gate was applied (step 2), so the spec PR now carries none of these labels — the next repo's sub-agent adding `spec:executed` will fire a fresh `labeled` webhook event. Dispatch the next repo (back to `planned → dispatch`). Go idle.
+   - `Decision: merge` → `gh pr merge <pr_url> --squash --delete-branch` this repo's companion code PR; set its scratch status to `merged`. Remove `spec:blocked` + `spec:pr-review` from the spec PR (`gh pr edit <spec_pr> --repo <metarepo> --remove-label spec:blocked --remove-label spec:pr-review`). Then:
+     - **If more repos remain** (any scratch status not `merged`): the `spec:executed` label was already removed when the `spec:pr-review` gate was applied (step 2), so the spec PR now carries none of these labels — the next repo's sub-agent adding `spec:executed` will fire a fresh `labeled` webhook event. Dispatch the next repo (back to `planned → dispatch`). Go idle.
      - **If all repos are `merged`** (Companion PR Rule satisfied): advance the spec-level gate once — `/update-gate <key> executed` → `/update-gate <key> submitted --evidence <last_pr_url>` (committed to the spec branch). Then:
        - `spec:complete` gate (`full`): swap the spec PR to `spec:blocked` + `spec:complete`, post a comment: `gh pr comment <spec_pr> --repo <metarepo> --body "✅ All companion PRs merged. Spec complete — awaiting final approval to archive.\n\n**Repos merged:** <list>\n**Last PR:** <last_pr_url>\n\nComment \`Decision: approved\` to archive, or \`Decision: changes_requested\` to hold."` Go idle. On the next human-decision wake with `Decision: approved` on the spec PR (verify human author), proceed to the archive step below. On `Decision: changes_requested`, do NOT archive — post a comment surfacing the request and go idle.
        - Otherwise archive now: run `/archive-spec` (sets frontmatter `archived`, calls `/update-gate <key> archived`, promotes memory) — this commits to the local spec branch. **Push the spec branch before merging** (`git push origin spec/<type>/<key>`), else the archive commit is not in the PR head and the merge omits it. Then `gh pr merge <spec_pr> --squash --delete-branch` to merge the spec PR to `main` (= archived). `/archive-spec` does NOT merge the PR itself — the orchestrator performs the push + merge.
@@ -181,7 +182,7 @@ On approval (a human comment approving the spec — however phrased), `/approve 
 
 ### Post-Execution Gate (label swap + spec PR body edit)
 
-For `spec:review` (and the optional `spec:complete` close-out): follow the SAME 5-step discipline (any branch commit first, push, then mutate the PR, then verify) — the difference is only the labels. Concretely: `gh pr edit <spec_pr> --repo <metarepo> --remove-label spec:executed --add-label spec:blocked --add-label <spec:review|spec:complete>`, edit the spec PR body to the review-gate template linking companion code PR(s), then verify with `gh pr view <spec_pr> --json labels` before going idle. Committing/branch work is never a substitute for the PR mutation. See `specifics/transport/github-prs.md` for the label taxonomy.
+For `spec:pr-review` (and the optional `spec:complete` close-out): follow the SAME 5-step discipline (any branch commit first, push, then mutate the PR, then verify) — the difference is only the labels. Concretely: `gh pr edit <spec_pr> --repo <metarepo> --remove-label spec:executed --add-label spec:blocked --add-label <spec:pr-review|spec:complete>`, edit the spec PR body to the review-gate template linking companion code PR(s), then verify with `gh pr view <spec_pr> --json labels` before going idle. Committing/branch work is never a substitute for the PR mutation. See `specifics/transport/github-prs.md` for the label taxonomy.
 
 ## Resume Flow
 
@@ -191,7 +192,7 @@ On any re-invocation (webhook wake or manual re-run):
 1a. **Validate state against reality.** If the gate reads `submitted` but no open companion code PR is found for `<key>` on the target repo(s), the state is ahead of the artifacts (manual edit, or a sub-agent that died before opening its PR). Do NOT proceed as if a PR exists — post a diagnostic to the spec PR and HALT.
 1b. **Detect orphaned dispatch.** If `scratch/orchestrator.md` records a dispatched session for the active repo but the spec PR has NO `spec:executed` label (and no informational comment from the sub-agent), the sub-agent died before reporting. Run the duplicate guard (close any orphan branch/PR on the target repo per Rule 4), clear that session ID from scratch, and re-dispatch — do NOT re-dispatch without clearing, or you create duplicate PRs.
 2. Determine wake reason:
-   - **Sub-agent handoff** (`spec:executed` label added to spec PR) → run `submitted → archived` step 1 (verify companion code PR, apply `spec:review`).
+   - **Sub-agent handoff** (`spec:executed` label added to spec PR) → run `submitted → archived` step 1 (verify companion code PR, apply `spec:pr-review`).
    - **Human decision** (any human comment on the paused spec PR — interpret intent, no rigid phrasing) → run `submitted → archived` step 3.
    - **Kickoff** (spec PR opened on branch `spec/<type>/<key>`) → run from the current gate state.
 3. If woken with no actionable signal (no label, no human decision): report the current state and go idle.

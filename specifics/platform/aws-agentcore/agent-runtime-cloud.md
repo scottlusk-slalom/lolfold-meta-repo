@@ -15,9 +15,9 @@ Orchestrator Agent (AgentCore Runtime — persistent session)
 Sub-Agents (AgentCore Runtime — ephemeral)
     ├── Per-repo work: feature implementation, refactoring, etc.
     ├── Opens code-repo companion PR on agent/<type>/<key>
-    └── Labels metarepo spec PR "sub-agent-complete" via gh (write scope required)
+    └── Labels metarepo spec PR "spec:executed" via gh (write scope required)
 GitHub Webhook (Lambda) — configured on METAREPO only
-    └── Spec PR events (opened / sub-agent-complete label / Decision: comment) → wakes orchestrator via invoke-agent-runtime
+    └── Spec PR events (opened / spec:executed label / Decision: comment) → wakes orchestrator via invoke-agent-runtime
 ```
 
 ## AWS Services Used
@@ -107,7 +107,7 @@ For cost optimization and reliability:
   - GitHub API (create/mutate spec PRs, read comments, manage labels)
   - S3 read/write for session state
 - **Trigger (Wake Option A — metarepo-only webhook):**
-  - GitHub webhook fires on METAREPO spec PR events: (1) spec PR opened, (2) `sub-agent-complete` label added to spec PR, (3) human comment with `Decision:` prefix on spec PR
+  - GitHub webhook fires on METAREPO spec PR events: (1) spec PR opened, (2) `spec:executed` label added to spec PR, (3) human comment with `Decision:` prefix on spec PR
   - Lambda receives webhook → `invoke-agent-runtime`
   - Manual CLI invocation via AgentCore console
 - **System prompt:** `AGENTS.md` + relevant workflow instructions
@@ -127,7 +127,7 @@ For cost optimization and reliability:
   - **Provisioning requirement:** sub-agent needs `repos/<repo>` reference-clone layout (setup-worktree.sh expects `git -C repos/<repo> worktree add ...`); if absent, worktree step fails with "Reference clone not found"
 - **IAM scope:**
   - Scoped to the spec's context (only S3 paths, resources for that spec if applicable)
-  - GitHub API — **CRITICAL:** sub-agent token needs WRITE access to METAREPO for label+comment operations on the spec PR (specifically: add `sub-agent-complete` label + post completion comment). Read/write target code repo.
+  - GitHub API — **CRITICAL:** sub-agent token needs WRITE access to METAREPO for label+comment operations on the spec PR (specifically: add `spec:executed` label + post completion comment). Read/write target code repo.
   - S3 read/write for artifacts
 - **Trigger:** Dispatched by orchestrator via `dispatch_subagent.py` → AgentCore API
 - **System prompt:** `AGENTS.md` + spec context + repo-specific instructions
@@ -163,17 +163,17 @@ Set by the orchestrator runtime at startup. Sub-agents inherit this and can re-d
 3.  Orchestrator: reads spec, validates repos listed in spec.yaml
 4.  Orchestrator: dispatches sub-agent for api-repo (passes spec key, target repo, spec PR number)
 5.  Sub-agent (api-repo): clones repo worktree, runs /multi-repo-loop <key> --repos api-repo --gates <level>, implements feature, commits, opens code-repo companion PR on branch agent/<type>/<key>
-6.  Sub-agent: on completion, adds `sub-agent-complete` LABEL to metarepo spec PR + informational comment via gh CLI (never git-pushes to metarepo)
-7.  GitHub webhook fires (sub-agent-complete label added to spec PR) → wakes orchestrator
-8.  Orchestrator: reviews companion PR, mutates spec PR in place to `pr-review` gate (commits gate/plan/status to spec/<type>/<key> branch)
-9.  → PAUSE: spec PR now shows `orchestrator-pause` label
+6.  Sub-agent: on completion, adds `spec:executed` LABEL to metarepo spec PR + informational comment via gh CLI (never git-pushes to metarepo)
+7.  GitHub webhook fires (spec:executed label added to spec PR) → wakes orchestrator
+8.  Orchestrator: reviews companion PR, mutates spec PR in place to `spec:pr-review` gate (commits gate/plan/status to spec/<type>/<key> branch)
+9.  → PAUSE: spec PR now shows `spec:blocked` label
     Human gets GitHub notification, reviews companion PR diff, comments "Decision: approved" on spec PR
 10. GitHub webhook fires (Decision: comment on spec PR) → wakes orchestrator
 11. Orchestrator: merges api-repo companion PR, dispatches sub-agent for frontend-repo
 12. Sub-agent (frontend-repo): clones repo worktree, implements feature, commits, opens companion PR
-13. Sub-agent: adds `sub-agent-complete` label to metarepo spec PR + comment
+13. Sub-agent: adds `spec:executed` label to metarepo spec PR + comment
 14. GitHub webhook fires → wakes orchestrator
-15. Orchestrator: reviews companion PR, mutates spec PR to `pr-review` gate
+15. Orchestrator: reviews companion PR, mutates spec PR to `spec:pr-review` gate
 16. → PAUSE: Human reviews, comments "Decision: approved"
 17. Orchestrator: merges frontend-repo companion PR, merges metarepo spec PR to main (= archived), generates retrospective
 ```
@@ -182,8 +182,8 @@ Set by the orchestrator runtime at startup. Sub-agents inherit this and can re-d
 
 ```
 1. Sub-agent fails (timeout, infra error, etc.)
-2. Orchestrator wakes (sub-agent-complete label or timeout), reads sub-agent logs, identifies issue
-3. → PAUSE: mutates spec PR to error gate with details and suggested fix, adds `orchestrator-pause` label
+2. Orchestrator wakes (spec:executed label or timeout), reads sub-agent logs, identifies issue
+3. → PAUSE: mutates spec PR to error gate with details and suggested fix, adds `spec:blocked` label
    Human reviews, comments "Decision: <guidance>" on spec PR
 4. GitHub webhook fires (Decision: comment) → orchestrator wakes, adjusts spec/guidance, re-dispatches
 ```
@@ -262,7 +262,7 @@ Optimizations:
 ### Phase 2: Webhook Automation (Wake Option A)
 - Lambda function: GitHub webhook receiver → `invoke-agent-runtime` (wake orchestrator on spec PR events)
 - API Gateway: webhook endpoint with GitHub signing secret verification
-- GitHub webhook configuration on **METAREPO ONLY** — wake triggers: (1) spec PR opened, (2) `sub-agent-complete` label added to spec PR, (3) comment on spec PR containing `Decision:` prefix. **Note:** GitHub `issue_comment` events fire for both issues and PRs; the Lambda handler must filter `issue_comment` events to only those where the event payload's `issue` object has a `pull_request` field AND the comment body contains `Decision:` — otherwise ignore.
+- GitHub webhook configuration on **METAREPO ONLY** — wake triggers: (1) spec PR opened, (2) `spec:executed` label added to spec PR, (3) comment on spec PR containing `Decision:` prefix. **Note:** GitHub `issue_comment` events fire for both issues and PRs; the Lambda handler must filter `issue_comment` events to only those where the event payload's `issue` object has a `pull_request` field AND the comment body contains `Decision:` — otherwise ignore.
 - Session ID mapping: how Lambda knows which AgentCore session to wake (spec PR branch name `spec/<type>/<key>` → session ID `orchestrator-spec-<type>-<key>`, or DynamoDB)
 
 ### Phase 3: Operational Tooling

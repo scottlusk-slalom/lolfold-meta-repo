@@ -2,14 +2,14 @@
 # Tracks template versioning and controls what gets synced to derived repos.
 # This file lives in BOTH the template source and each derived copy.
 
-template_version: "1.0.4"   # bump when releasing changes to the template
+template_version: "1.0.5"   # bump when releasing changes to the template
 manifest_version: "1"       # schema version of this manifest format
 
 # Upstream template — only present in derived repos (not in the source template)
 # Set repo to a local clone path or git URL of ae-harness-platform-poc
 upstream:
   repo: "https://github.com/Slalom/ae-harness-platform-poc.git"  # local clone path OR git URL
-  pinned_at: "1.0.4"
+  pinned_at: "1.0.5"
 
 # Framework paths — files/dirs from the template that are synced wholesale
 # (overwritten on each sync unless listed in .template-overrides/)
