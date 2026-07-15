@@ -1,6 +1,0 @@
-title: Default blinds to 2/5 instead of 1/2
-type: bug
-status: archived
-quality_gate: minimal
-repos:
-  - lolfold-api

@@ -1,6 +1,0 @@
-title: Default potType to single_raised when not determinable
-type: bug
-status: archived
-quality_gate: minimal
-repos:
-  - lolfold-api
