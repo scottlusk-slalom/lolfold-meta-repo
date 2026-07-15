@@ -9,7 +9,7 @@ manifest_version: "1"       # schema version of this manifest format
 # Set repo to a local clone path or git URL of ae-harness-platform-poc
 upstream:
   repo: "https://github.com/Slalom/ae-harness-platform-poc.git"  # local clone path OR git URL
-  pinned_at: ""   # set automatically by scripts/update-template.sh
+  pinned_at: "1.0.4"
 
 # Framework paths — files/dirs from the template that are synced wholesale
 # (overwritten on each sync unless listed in .template-overrides/)
