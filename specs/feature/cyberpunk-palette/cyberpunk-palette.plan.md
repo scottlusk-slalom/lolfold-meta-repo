@@ -3,6 +3,7 @@ title: 80s Cyberpunk Color Palette Redesign — Execution Plan
 spec: cyberpunk-palette
 type: feature
 quality_gate: standard
+status: approved
 repos:
   - lolfold-frontend
 created: 2026-07-15

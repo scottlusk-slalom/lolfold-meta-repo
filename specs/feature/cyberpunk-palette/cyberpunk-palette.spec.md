@@ -1,7 +1,7 @@
 ---
 title: 80s Cyberpunk Color Palette Redesign
 type: feature
-status: specified
+status: planned
 quality_gate: standard
 repos:
   - lolfold-frontend
