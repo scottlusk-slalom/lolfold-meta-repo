@@ -2,6 +2,11 @@
 # Updated by /approve and /update-gate commands
 
 specs:
+  cyberpunk-palette:
+    type: feature
+    status: planned
+    approved_at: 2026-07-15
+    path: specs/feature/cyberpunk-palette/
   hand-replayer-ui-enhancements:
     type: feature
     status: archived
